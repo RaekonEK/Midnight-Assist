@@ -1,51 +1,49 @@
-# **midnight assist now available for 26.1. enjoy this mod with the golden dandelion**
-# **💕Thanks For 2K Downloads 💕**
-# **PLEASE FOLLOW 🥺**
+# **PLZ click the download button, it will cost you nothing**
+
+# **Give me some ideas💡 for the mod on [the GitHub page](https://github.com/RaekonEK/Midnight-Assist/issues)**
+
+## **💕 Thanks for 13K Downloads 💕**
+
+## prepaire yourself for our new mod. it will be released soon
+
+# - What it does ❓:
+
+* This mod adds aim assist to the game to make hitting easier when playing with a controller 🎮. This makes the game more fun and fair because moving the camera with the right joystick 🕹️ is difficult and inaccurate ❌🎯.
+
+* This mod supports Mouse 🖱️ and Gamepad 🎮, but I recommend using it with gamepads 🎮 or mobile 📱 if you use something like [Zalith Launcher 2](https://github.com/ZalithLauncher/ZalithLauncher2), because a mouse 🖱️ is already good 👍 and accurate 🎯, unlike a joystick 🕹️ or mobile 📱 controls.
 
 # ⚠️ Warnings ⚠️:
 
-### **-this is not a cheat client. it will not work against player it works only on mobs**
+### **- This is not a cheat client. It will not work against other players; it works only on mobs.**
 
-**- To play with this mod on Minecraft 1.20.x, you must use Java 21. Using Java 17 will crash the game**
+**- Report issues in [the bug tracker](https://github.com/RaekonEK/Midnight-Assist/issues)**
 
-**- This Mod require any version of [Fabric API](https://modrinth.com/mod/fabric-api) and [Fabric Kotlin Language](https://modrinth.com/mod/fabric-language-kotlin) for both Fabric and Quilt but any version above 1.1.0 of this mod require [Cloth config](https://modrinth.com/mod/cloth-config) and [Mod menu](https://modrinth.com/mod/modmenu)**
+**- To play with this mod on Minecraft 1.20.x, you must use Java 21. Using Java 17 will crash the game.**
 
-**- In the github page there is only 1.21.11 version**
+**- This mod requires any version of [Fabric API](https://modrinth.com/mod/fabric-api) and [Fabric Kotlin Language](https://modrinth.com/mod/fabric-language-kotlin) for both Fabric and Quilt, but any version above 1.1.0 of this mod requires [Cloth Config](https://modrinth.com/mod/cloth-config) and [Mod Menu](https://modrinth.com/mod/modmenu).**
 
-**-any version above 1.1.0 of this mod require [Cloth config](https://modrinth.com/mod/cloth-config) and [mod menu](https://Modrinth.com/mod/modmenu)**
+**- On the GitHub page, there is only the 1.21.11 version.**
 
-# About 1.19.X support:
-**- If I get 50 followers ❤️ .I will make 1.19.X version**
+# What added in the 1.3.0 update:
 
-# What is 1.2.0 update:
-## this update added
-## **🌍 Comprehensive Global Support (50+ Languages):**
-Added full translation for over 50 world languages, including Persian, Arabic, Spanish, French, Chinese, and Japanese.
-Support for regional dialects (e.g., Mexican Spanish, Canadian French, Brazilian Portuguese).
-Added "Fun" languages: Pirate Speak, LOLCAT, and Shakespearean English!
-The config menu and chat messages will now automatically match your game's language.
-## **🧠 Smart Attack Logic:**
-The mod only intervenes when a valid target is detected in your FOV, preventing interference with your normal playstyle.
-## **⚙️ configurations:**
-- added presets for tagets
-- added aim assist distance configuration
-- added the distance allowed between crosshair and target configuration
-## **⚔️ Combat Refinements:**
-Smoother and more responsive tracking system.
-Improved "Double Hit" prevention to ensure attack cooldowns are used efficiently.
-Immediate return of control to the player upon target loss or death.
-## **⚙️ Technical Improvements:**
-Code refactoring using Kotlin for better performance and stability.
-Updated compatibility for the latest Fabric versions.
+## 1- Melee Lock-On:
 
-- This mod supports Mouse 🖱️ And gamepad 🎮 but I recommend to use it with gamepads 🎮 or mobile 📱 if you use something like [Zalith Launcher 2](https://github.com/ZalithLauncher/ZalithLauncher2). because mouse 🖱️ is good 👍 and accurate 🎯 unlike joystick 🕹️ and mobile 📱
+* When you press the use (right click, LT, L2 by default), the camera will focus on a single mob. This will help a lot.
 
-# - What it does ❓:
-**- This mod adds aim assist to the game to make hitting easier when playing with a controller 🎮, that's make the game more fun and fair because moving the camera with the right joystick 🕹️ is difficult and inaccurate ❌🎯.**
+## 2- Smoother Aim Assist:
 
-- Feel Free to use it in modpacks
+* In the 1.2.0 update, we added smooth aim assisting, but it's not smooth enough, so we added smoother aim assisting which feels more natural and less clunky.
+
+## 3- fixing syntax error:
+
+* changing "Midnight Assi**sit**" to "Midnight Assi**st**"
+
+## 4- Bug Fixing (the most exciting part):
+
+* YAY, bug fixes! Everyone's favorite part, including users and us.
 
 # **Standing With Our Values**
+
 ![Standing With Our Values](https://cdn.modrinth.com/data/cached_images/baa1afa20e865e4163f5b161e05f94ddbeab142c.png)
 
 # **#Free_Palestine**
