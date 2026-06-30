@@ -28,7 +28,7 @@ loom {
 	splitEnvironmentSourceSets()
 
 	mods {
-		"midnight-assisit" {
+		"midnight-assist" {
 			sourceSet sourceSets.main
 			sourceSet sourceSets.client
 		}
