@@ -7,7 +7,7 @@ import net.minecraft.text.Text
 import org.slf4j.LoggerFactory
 
 object MidnightAssisit : ModInitializer {
-    private val logger = LoggerFactory.getLogger("midnight-assisit")
+    private val logger = LoggerFactory.getLogger("midnight-assist")
 
 	override fun onInitialize() {
 		// This code runs as soon as Minecraft is in a mod-load-ready state.
@@ -23,8 +23,8 @@ object MidnightAssisit : ModInitializer {
 					.then(CommandManager.literal("reload")
 						.executes { context ->
 							MidnightAssisitConfig.load()
-							val prefix = Text.translatable("chat.midnight-assisit.prefix")
-							val message = Text.translatable("chat.midnight-assisit.reloaded")
+							val prefix = Text.translatable("chat.midnight-assist.prefix")
+							val message = Text.translatable("chat.midnight-assist.reloaded")
 							context.source.sendFeedback({ prefix.copy().append(message) }, false)
 							1
 						}
@@ -33,16 +33,16 @@ object MidnightAssisit : ModInitializer {
 						.executes { context ->
 							MidnightAssisitConfig.data.globalEnabled = !MidnightAssisitConfig.data.globalEnabled
 							MidnightAssisitConfig.save()
-							val statusKey = if (MidnightAssisitConfig.data.globalEnabled) "chat.midnight-assisit.enabled" else "chat.midnight-assisit.disabled"
-							val prefix = Text.translatable("chat.midnight-assisit.prefix")
+							val statusKey = if (MidnightAssisitConfig.data.globalEnabled) "chat.midnight-assist.enabled" else "chat.midnight-assist.disabled"
+							val prefix = Text.translatable("chat.midnight-assist.prefix")
 							val status = Text.translatable(statusKey)
 							context.source.sendFeedback({ prefix.copy().append(status) }, false)
 							1
 						}
 					)
 					.executes { context ->
-						val prefix = Text.translatable("chat.midnight-assisit.prefix")
-						val usage = Text.translatable("chat.midnight-assisit.usage")
+						val prefix = Text.translatable("chat.midnight-assist.prefix")
+						val usage = Text.translatable("chat.midnight-assist.usage")
 						context.source.sendFeedback({ prefix.copy().append(usage) }, false)
 						1
 					}

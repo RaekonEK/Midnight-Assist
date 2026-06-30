@@ -12,7 +12,20 @@ import java.io.File
 
 object MidnightAssisitConfig {
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
-    private val configFile: File = FabricLoader.getInstance().configDir.resolve("midnight-assisit.json").toFile()
+    private val configFile: File = FabricLoader.getInstance().configDir.resolve("midnight-assist.json").toFile()
+
+    enum class TargetPriority {
+        NEAREST,
+        FARTHEST,
+        WEAKEST,
+        STRONGEST,
+        LOOKING_AT_YOU,
+        RECENTLY_ATTACKED;
+
+        fun getTranslationKey(): String {
+            return "option.midnight-assist.target_priority." + this.name.lowercase()
+        }
+    }
 
     enum class Preset {
         NONE,
@@ -29,14 +42,17 @@ object MidnightAssisitConfig {
         END;
 
         fun getTranslationKey(): String {
-            return "option.midnight-assisit.preset." + this.name.lowercase()
+            return "option.midnight-assist.preset." + this.name.lowercase()
         }
     }
 
     data class ConfigData(
+        var configVersion: Int = 2,
         var globalEnabled: Boolean = true,
         var aimAccuracy: Double = 0.2,
         var aimSpeed: Double = 0.5,
+        var targetPriority: TargetPriority = TargetPriority.NEAREST,
+        var meleeLockOnEnabled: Boolean = true,
         var lastAppliedPreset: Preset = Preset.NONE,
         val enabledEntities: MutableMap<String, Boolean> = mutableMapOf()
     )
@@ -51,7 +67,16 @@ object MidnightAssisitConfig {
                 save()
             }
         }
-        
+
+        // Migration from old configs (pre-v2)
+        var migrated = false
+        if (data.configVersion < 2) {
+            data.targetPriority = TargetPriority.NEAREST
+            data.meleeLockOnEnabled = true
+            data.configVersion = 2
+            migrated = true
+        }
+
         // Ensure player is never enabled
         data.enabledEntities.remove("minecraft:player")
         
@@ -66,7 +91,7 @@ object MidnightAssisitConfig {
             }
         }
         
-        if (changed || !configFile.exists()) {
+        if (changed || migrated || !configFile.exists()) {
             save()
         }
     }
@@ -126,7 +151,7 @@ object MidnightAssisitConfig {
                 Preset.OVERWORLD -> isOverworld
                 Preset.NETHER -> isNether
                 Preset.END -> isEnd
-                else -> data.enabledEntities[id] ?: isSmartDefault(type, id)
+                Preset.NONE -> data.enabledEntities[id] ?: isSmartDefault(type, id)
             }
             
             data.enabledEntities[id] = enabled
