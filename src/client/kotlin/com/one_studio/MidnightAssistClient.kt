@@ -2,6 +2,10 @@ package com.one_studio
 
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback
+import net.fabricmc.fabric.api.event.player.UseBlockCallback
+import net.fabricmc.fabric.api.event.player.UseEntityCallback
+import net.fabricmc.fabric.api.event.player.UseItemCallback
 import net.minecraft.client.Minecraft
 import net.minecraft.util.Mth
 import net.minecraft.world.InteractionHand
@@ -12,16 +16,10 @@ import net.minecraft.world.entity.Mob
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.phys.EntityHitResult
 import net.minecraft.world.phys.HitResult
-
+import org.slf4j.LoggerFactory
+import kotlin.jvm.JvmStatic
 import kotlin.math.exp
 import kotlin.math.sqrt
-import kotlin.jvm.JvmStatic
-import org.slf4j.LoggerFactory
-
-import net.fabricmc.fabric.api.event.player.AttackEntityCallback
-import net.fabricmc.fabric.api.event.player.UseBlockCallback
-import net.fabricmc.fabric.api.event.player.UseItemCallback
-import net.fabricmc.fabric.api.event.player.UseEntityCallback
 
 object MidnightAssistClient : ClientModInitializer {
     private val logger = LoggerFactory.getLogger("MidnightAssist")
@@ -76,18 +74,16 @@ object MidnightAssistClient : ClientModInitializer {
             }
 
             recentlyAttacked.entries.removeAll { System.currentTimeMillis() - it.value > RECENTLY_ATTACKED_TIMEOUT }
-
             meleeCameraRunning = false
 
-            val entityReach = if (player.abilities.instabuild) 5.0 else 3.0
+            val entityReach = entityReach(player)
 
             if (MidnightAssistConfig.data.meleeLockOnEnabled) {
-                if (isUsePressed(client)) {
-                    if (meleeLockOnTargetId == -1 && !isHunting) {
+                if (isUsePressed(client) && !isHunting) {
+                    if (meleeLockOnTargetId == -1) {
                         val lockOnTarget = findTarget(client, 5.0, ignoreFov = false)
                         if (lockOnTarget != null) {
                             meleeLockOnTargetId = lockOnTarget.id
-                            logger.info("Melee lock-on target: {} (id={})", lockOnTarget.name.string, lockOnTarget.id)
                         }
                     }
                     if (meleeLockOnTargetId != -1) {
@@ -97,11 +93,9 @@ object MidnightAssistClient : ClientModInitializer {
                             lockOnCamera = null
                             lastLockTargetId = -1
                             camInitialized = false
-                            logger.info("Melee lock-on target lost")
                         }
                     }
                 } else if (meleeLockOnTargetId != -1) {
-                    logger.info("Melee lock-on released")
                     meleeLockOnTargetId = -1
                     lockedTargetId = -1
                     lockOnCamera = null
@@ -140,7 +134,6 @@ object MidnightAssistClient : ClientModInitializer {
                     isHunting = true
                     attackStartTime = System.currentTimeMillis()
                     ticksSinceTargetAcquired = 0
-                    logger.info("Acquired intercepted target: {} (id={})", target.name.string, target.id)
                 } else {
                     pendingTargetId = -1
                     pendingAttack = false
@@ -159,7 +152,7 @@ object MidnightAssistClient : ClientModInitializer {
                 val crosshair = client.hitResult
                 if (crosshair != null && crosshair.type == HitResult.Type.ENTITY) {
                     val hitEntity = (crosshair as EntityHitResult).entity
-                    if (hitEntity != null && hitEntity.isAlive && MidnightAssistConfig.isEntityEnabled(hitEntity) && hitEntity !is Player) {
+                    if (hitEntity.isAlive && MidnightAssistConfig.isEntityEnabled(hitEntity) && hitEntity !is Player) {
                         val newTargetId = hitEntity.id
                         val isNewTarget = lockedTargetId != newTargetId
                         currentTarget = hitEntity
@@ -167,9 +160,6 @@ object MidnightAssistClient : ClientModInitializer {
                         isHunting = true
                         attackStartTime = System.currentTimeMillis()
                         if (isNewTarget) ticksSinceTargetAcquired = 0
-                        logger.info("Direct target from crosshair: {} (id={})", hitEntity.name.string, hitEntity.id)
-                    } else {
-                        logger.info("Crosshair entity rejected, falling back to findTarget")
                     }
                 }
                 if (currentTarget == null) {
@@ -181,7 +171,6 @@ object MidnightAssistClient : ClientModInitializer {
                         isHunting = true
                         attackStartTime = System.currentTimeMillis()
                         if (isNewTarget) ticksSinceTargetAcquired = 0
-                        logger.info("Found target via findTarget: {} (id={})", currentTarget.name.string, currentTarget.id)
                     }
                 }
             }
@@ -232,7 +221,7 @@ object MidnightAssistClient : ClientModInitializer {
             val player = client.player ?: return@EndTick
             val gameMode = client.gameMode ?: return@EndTick
 
-            val entityReach = if (player.abilities.instabuild) 5.0 else 3.0
+            val entityReach = entityReach(player)
 
             if (isHunting && lockedTargetId != -1 && pendingAttack && !gameMode.isDestroying()) {
                 val target = client.level?.getEntity(lockedTargetId)
@@ -251,17 +240,15 @@ object MidnightAssistClient : ClientModInitializer {
                     val shouldRelease = ticksSinceTargetAcquired > maxAlignTicks && !cameraAligned
 
                     if (canAttack) {
-                        logger.info("ATTACK! target={} onTarget={} cameraAligned={} cooldown={} elapsed={} ticks={}", target.name.string, onTarget, cameraAligned, cooldown, elapsed, ticksSinceTargetAcquired)
-
                         modCausingAttack = true
                         gameMode.attack(player, target)
                         modCausingAttack = false
+                        player.swing(InteractionHand.MAIN_HAND)
                         recentlyAttacked[target.id] = System.currentTimeMillis()
                         attackStartTime = System.currentTimeMillis()
                         pendingAttack = false
 
                         val stillAttacking = isAttackPressed(client) || pendingAttack
-
                         if (!stillAttacking) {
                             isHunting = false
                             lockedTargetId = -1
@@ -273,7 +260,6 @@ object MidnightAssistClient : ClientModInitializer {
                             ticksSinceTargetAcquired = 0
                         }
                     } else if (shouldRelease) {
-                        logger.info("Releasing target - couldn't align camera after {} ticks", maxAlignTicks)
                         isHunting = false
                         lockedTargetId = -1
                         lockOnCamera = null
@@ -282,11 +268,8 @@ object MidnightAssistClient : ClientModInitializer {
                         pendingAttack = false
                         pendingTargetId = -1
                         ticksSinceTargetAcquired = 0
-                    } else {
-                        if (elapsed % 200L < 50L) logger.info("Waiting: onTarget={} cameraAligned={} cooldown={} elapsed={} ticks={}", onTarget, cameraAligned, cooldown, elapsed, ticksSinceTargetAcquired)
                     }
                 } else {
-                    logger.info("Target lost: id={}", lockedTargetId)
                     isHunting = false
                     lockedTargetId = -1
                     lockOnCamera = null
@@ -304,14 +287,12 @@ object MidnightAssistClient : ClientModInitializer {
 
             if (!MidnightAssistConfig.data.globalEnabled) return@EndTick
             if (isHunting || lockedTargetId != -1 || meleeLockOnTargetId != -1) return@EndTick
-
-            val realPressed = isAttackPressed(client)
-            if (!realPressed) return@EndTick
+            if (!isAttackPressed(client)) return@EndTick
 
             val crosshair = client.hitResult
             if (crosshair != null && crosshair.type == HitResult.Type.ENTITY) {
                 val hitEntity = (crosshair as EntityHitResult).entity
-                if (hitEntity != null && hitEntity.isAlive && hitEntity !is Player) {
+                if (hitEntity.isAlive && hitEntity !is Player) {
                     val cooldown = player.getAttackStrengthScale(0.0f)
                     if (cooldown >= 1.0f && !gameMode.isDestroying()) {
                         gameMode.attack(player, hitEntity)
@@ -323,12 +304,16 @@ object MidnightAssistClient : ClientModInitializer {
     }
 
     private fun isUsePressed(client: Minecraft): Boolean {
-        if (client.gui.screen() != null) return false
+        if (client.screen != null) return false
         return client.options.keyUse.isDown
     }
 
     private fun isAttackPressed(client: Minecraft): Boolean {
         return client.options.keyAttack.isDown
+    }
+
+    private fun entityReach(player: Player): Double {
+        return if (player.abilities.instabuild) 5.0 else 3.0
     }
 
     private fun isTargetUnderCrosshair(client: Minecraft, target: Entity): Boolean {
@@ -450,13 +435,18 @@ object MidnightAssistClient : ClientModInitializer {
     }
 
     @JvmStatic
+    fun shouldCancelItemUse(): Boolean {
+        val instance = Minecraft.getInstance()
+        if (instance.player == null || instance.screen != null) return false
+        return instance.options.keyUse.isDown && meleeLockOnTargetId != -1 && MidnightAssistConfig.data.meleeLockOnEnabled && MidnightAssistConfig.data.globalEnabled
+    }
+
+    @JvmStatic
     fun tryInterceptAttack(client: Minecraft): Boolean {
         if (!MidnightAssistConfig.data.globalEnabled) return false
-        val player = client.player ?: return false
-        val level = client.level ?: return false
         if (modCausingAttack) return false
         if (meleeLockOnTargetId != -1) {
-            val target = level.getEntity(meleeLockOnTargetId)
+            val target = client.level?.getEntity(meleeLockOnTargetId)
             if (target != null && target.isAlive) {
                 lockedTargetId = target.id
                 isHunting = true
@@ -467,7 +457,6 @@ object MidnightAssistClient : ClientModInitializer {
                 camInitialized = false
                 attackStartTime = System.currentTimeMillis()
                 ticksSinceTargetAcquired = 0
-                logger.info("Attack during melee lock-on, hunting: {} (id={})", target.name.string, target.id)
                 return true
             }
         }
@@ -478,15 +467,7 @@ object MidnightAssistClient : ClientModInitializer {
         pendingAttack = true
         attackStartTime = System.currentTimeMillis()
         ticksSinceTargetAcquired = 0
-        logger.info("Intercepted attack, hunting: {} (id={})", target.name.string, target.id)
         return true
-    }
-
-    @JvmStatic
-    fun shouldCancelItemUse(): Boolean {
-        val instance = Minecraft.getInstance()
-        if (instance.player == null || instance.gui.screen() != null) return false
-        return instance.options.keyUse.isDown && meleeLockOnTargetId != -1 && MidnightAssistConfig.data.meleeLockOnEnabled && MidnightAssistConfig.data.globalEnabled
     }
 
     @JvmStatic

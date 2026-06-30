@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.core.registries.BuiltInRegistries
+
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.MobCategory
@@ -14,7 +15,12 @@ object MidnightAssistConfig {
     private val configFile: File = FabricLoader.getInstance().configDir.resolve("midnight-assist.json").toFile()
 
     enum class TargetPriority {
-        NEAREST, FARTHEST, WEAKEST, STRONGEST, LOOKING_AT_YOU, RECENTLY_ATTACKED;
+        NEAREST,
+        FARTHEST,
+        WEAKEST,
+        STRONGEST,
+        LOOKING_AT_YOU,
+        RECENTLY_ATTACKED;
 
         fun getTranslationKey(): String {
             return "option.midnight-assist.target_priority." + this.name.lowercase()
@@ -22,9 +28,18 @@ object MidnightAssistConfig {
     }
 
     enum class Preset {
-        NONE, PASSIVE_ONLY, HOSTILE_ONLY, PASSIVE_AND_HOSTILE, NEUTRAL_ONLY,
-        NEUTRAL_AND_HOSTILE, NEUTRAL_AND_PASSIVE, ALL_MOBS, ALL_ENTITIES,
-        OVERWORLD, NETHER, END;
+        NONE,
+        PASSIVE_ONLY,
+        HOSTILE_ONLY,
+        PASSIVE_AND_HOSTILE,
+        NEUTRAL_ONLY,
+        NEUTRAL_AND_HOSTILE,
+        NEUTRAL_AND_PASSIVE,
+        ALL_MOBS,
+        ALL_ENTITIES,
+        OVERWORLD,
+        NETHER,
+        END;
 
         fun getTranslationKey(): String {
             return "option.midnight-assist.preset." + this.name.lowercase()
@@ -48,7 +63,7 @@ object MidnightAssistConfig {
         if (configFile.exists()) {
             try {
                 data = gson.fromJson(configFile.readText(), ConfigData::class.java)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 save()
             }
         }
@@ -176,7 +191,8 @@ object MidnightAssistConfig {
 
             data.enabledEntities.remove("minecraft:player")
             configFile.writeText(gson.toJson(data))
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
