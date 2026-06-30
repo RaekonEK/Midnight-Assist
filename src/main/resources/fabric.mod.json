@@ -1,0 +1,49 @@
+{
+	"schemaVersion": 1,
+	"id": "midnight-assist",
+	"version": "${version}",
+	"name": "Midnight Assist",
+	"description": "Aim assist for better gamepad experience",
+	"authors": [
+		"1studios"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/midnight-assist/icon.png",
+	"environment": "*",
+	"mixins": [
+		{
+			"config": "midnight-assist.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"entrypoints": {
+		"main": [
+			{
+				"value": "com.one_studio.MidnightAssist",
+				"adapter": "kotlin"
+			}
+		],
+		"client": [
+			{
+				"value": "com.one_studio.MidnightAssistClient",
+				"adapter": "kotlin"
+			}
+		],
+		"modmenu": [
+			"com.one_studio.MidnightAssistModMenu"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": ">=26.2",
+		"java": ">=25",
+		"fabric-api": "*",
+		"fabric-language-kotlin": "*",
+		"modmenu": "*",
+		"cloth-config": "*"
+	}
+}
