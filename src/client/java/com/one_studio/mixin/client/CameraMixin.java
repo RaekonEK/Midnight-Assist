@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class CameraMixin {
     @Inject(method = "render", at = @At("HEAD"))
     private void onRender(RenderTickCounter tickCounter, boolean tick, CallbackInfo ci) {
-        float partialTicks = tickCounter.getTickProgress(tick);
+        float partialTicks = tickCounter.getTickDelta(tick);
         MidnightAssisitClient.applyPartialTicks(partialTicks);
     }
 }
