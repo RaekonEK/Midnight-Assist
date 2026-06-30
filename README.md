@@ -22,8 +22,6 @@
 
 **- This mod requires any version of [Fabric API](https://modrinth.com/mod/fabric-api) and [Fabric Kotlin Language](https://modrinth.com/mod/fabric-language-kotlin) for both Fabric and Quilt, but any version above 1.1.0 of this mod requires [Cloth Config](https://modrinth.com/mod/cloth-config) and [Mod Menu](https://modrinth.com/mod/modmenu).**
 
-**- On the GitHub page, there is only the 1.21.11 version.**
-
 # What added in the 1.3.0 update:
 
 ## 1- Melee Lock-On:
