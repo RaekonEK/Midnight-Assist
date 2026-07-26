@@ -18,54 +18,68 @@ public class MidnightAssisitModMenu implements ModMenuApi {
         return parent -> {
             ConfigBuilder builder = ConfigBuilder.create()
                 .setParentScreen(parent)
-                .setTitle(Text.translatable("title.midnight-assisit.config"))
+                .setTitle(Text.translatable("title.midnight-assist.config"))
                 .setSavingRunnable(MidnightAssisitConfig.INSTANCE::save);
 
             var entryBuilder = builder.entryBuilder();
-            var general = builder.getOrCreateCategory(Text.translatable("category.midnight-assisit.general"));
+            var general = builder.getOrCreateCategory(Text.translatable("category.midnight-assist.general"));
 
-            // Global Enabled
-            general.addEntry(entryBuilder.startBooleanToggle(Text.translatable("option.midnight-assisit.global_enabled"), MidnightAssisitConfig.INSTANCE.getData().getGlobalEnabled())
+            general.addEntry(entryBuilder.startBooleanToggle(Text.translatable("option.midnight-assist.global_enabled"), MidnightAssisitConfig.INSTANCE.getData().getGlobalEnabled())
                 .setDefaultValue(true)
                 .setSaveConsumer(MidnightAssisitConfig.INSTANCE.getData()::setGlobalEnabled)
                 .build());
 
-            // Aim Accuracy
-            general.addEntry(entryBuilder.startDoubleField(Text.translatable("option.midnight-assisit.aim_accuracy"), MidnightAssisitConfig.INSTANCE.getData().getAimAccuracy())
+            general.addEntry(entryBuilder.startDoubleField(Text.translatable("option.midnight-assist.aim_accuracy"), MidnightAssisitConfig.INSTANCE.getData().getAimAccuracy())
                 .setDefaultValue(0.2)
                 .setMin(0.0)
                 .setMax(1.0)
-                .setTooltip(Text.translatable("option.midnight-assisit.aim_accuracy.tooltip"))
+                .setTooltip(Text.translatable("option.midnight-assist.aim_accuracy.tooltip"))
                 .setSaveConsumer(MidnightAssisitConfig.INSTANCE.getData()::setAimAccuracy)
                 .build());
- 
-            // Aim Speed
-            general.addEntry(entryBuilder.startDoubleField(Text.translatable("option.midnight-assisit.aim_speed"), MidnightAssisitConfig.INSTANCE.getData().getAimSpeed())
+
+            general.addEntry(entryBuilder.startDoubleField(Text.translatable("option.midnight-assist.aim_speed"), MidnightAssisitConfig.INSTANCE.getData().getAimSpeed())
                 .setDefaultValue(0.5)
                 .setMin(0.0)
                 .setMax(1.0)
-                .setTooltip(Text.translatable("option.midnight-assisit.aim_speed.tooltip"))
+                .setTooltip(Text.translatable("option.midnight-assist.aim_speed.tooltip"))
                 .setSaveConsumer(MidnightAssisitConfig.INSTANCE.getData()::setAimSpeed)
                 .build());
 
+            // Smart Target Priority
+            general.addEntry(entryBuilder.startEnumSelector(
+                Text.translatable("option.midnight-assist.target_priority"),
+                MidnightAssisitConfig.TargetPriority.class,
+                MidnightAssisitConfig.INSTANCE.getData().getTargetPriority()
+            ).setDefaultValue(MidnightAssisitConfig.TargetPriority.NEAREST)
+                .setTooltip(Text.translatable("option.midnight-assist.target_priority.tooltip"))
+                .setSaveConsumer(MidnightAssisitConfig.INSTANCE.getData()::setTargetPriority)
+                .build());
+
+            // Melee Lock-On
+            general.addEntry(entryBuilder.startBooleanToggle(Text.translatable("option.midnight-assist.melee_lock_on"), MidnightAssisitConfig.INSTANCE.getData().getMeleeLockOnEnabled())
+                .setDefaultValue(true)
+                .setTooltip(Text.translatable("option.midnight-assist.melee_lock_on.tooltip"))
+                .setSaveConsumer(MidnightAssisitConfig.INSTANCE.getData()::setMeleeLockOnEnabled)
+                .build());
+
             // Presets
-            general.addEntry(entryBuilder.startEnumSelector(Text.translatable("option.midnight-assisit.preset"), MidnightAssisitConfig.Preset.class, MidnightAssisitConfig.Preset.NONE)
+            general.addEntry(entryBuilder.startEnumSelector(Text.translatable("option.midnight-assist.preset"), MidnightAssisitConfig.Preset.class, MidnightAssisitConfig.Preset.NONE)
                 .setSaveConsumer(MidnightAssisitConfig.INSTANCE.getData()::setLastAppliedPreset)
                 .setDefaultValue(MidnightAssisitConfig.Preset.NONE)
-                .setTooltip(Text.translatable("option.midnight-assisit.preset.tooltip"))
+                .setTooltip(Text.translatable("option.midnight-assist.preset.tooltip"))
                 .build());
 
             // Entities Category
-            var entities = builder.getOrCreateCategory(Text.translatable("category.midnight-assisit.entities"));
-            
+            var entities = builder.getOrCreateCategory(Text.translatable("category.midnight-assist.entities"));
+
             List<String> sortedEntities = new ArrayList<>(MidnightAssisitConfig.INSTANCE.getData().getEnabledEntities().keySet());
             Collections.sort(sortedEntities);
-            
+
             for (String id : sortedEntities) {
                 var entityType = MidnightAssisitConfig.INSTANCE.getEntityType(id);
-                
+
                 if (entityType == null) continue;
-                
+
                 var entityName = entityType.getName();
                 boolean smartDefault = MidnightAssisitConfig.INSTANCE.isSmartDefault(entityType, id);
 
