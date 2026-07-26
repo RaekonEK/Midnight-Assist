@@ -1,17 +1,17 @@
 package com.one_studio.mixin.client;
 
-import com.one_studio.MidnightAssistClient;
-import net.minecraft.client.Minecraft;
+import com.one_studio.MidnightAssisitClient;
+import net.minecraft.client.MinecraftClient;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(Minecraft.class)
+@Mixin(MinecraftClient.class)
 public class AttackMixin {
-    @Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)
-    private void onStartAttack(CallbackInfoReturnable<Boolean> cir) {
-        if (MidnightAssistClient.tryInterceptAttack(Minecraft.getInstance())) {
+    @Inject(at = @At("HEAD"), method = "doAttack", cancellable = true)
+    private void onDoAttack(CallbackInfoReturnable<Boolean> cir) {
+        if (MidnightAssisitClient.tryInterceptAttack((MinecraftClient)(Object)this)) {
             cir.setReturnValue(false);
         }
     }

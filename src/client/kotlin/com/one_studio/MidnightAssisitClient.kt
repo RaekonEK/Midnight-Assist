@@ -10,6 +10,7 @@ import net.minecraft.entity.mob.MobEntity
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.util.ActionResult
 import net.minecraft.util.Hand
+import net.minecraft.util.TypedActionResult
 import net.minecraft.util.hit.EntityHitResult
 import net.minecraft.util.math.MathHelper
 
@@ -55,8 +56,9 @@ object MidnightAssisitClient : ClientModInitializer {
         UseBlockCallback.EVENT.register { player, _, hand, _ ->
             if (shouldCancelItemUse()) ActionResult.FAIL else ActionResult.PASS
         }
-        UseItemCallback.EVENT.register { player, _, hand ->
-            if (shouldCancelItemUse()) ActionResult.FAIL else ActionResult.PASS
+        UseItemCallback.EVENT.register { player, world, hand ->
+            val stack = player.getStackInHand(hand)
+            if (shouldCancelItemUse()) TypedActionResult.fail(stack) else TypedActionResult.pass(stack)
         }
         UseEntityCallback.EVENT.register { player, _, hand, entity, _ ->
             if (shouldCancelItemUse()) ActionResult.FAIL else ActionResult.PASS
@@ -254,7 +256,7 @@ object MidnightAssisitClient : ClientModInitializer {
                     if (canAttack) {
                         logger.info("ATTACK! target={} onTarget={} cameraAligned={} cooldown={} elapsed={} ticks={}", target.name.string, onTarget, cameraAligned, cooldown, elapsed, ticksSinceTargetAcquired)
                         
-                        client.getNetworkHandler()?.sendPacket(net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.LookAndOnGround(curCamYaw, curCamPitch, player.isOnGround(), player.horizontalCollision))
+                        client.getNetworkHandler()?.sendPacket(net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.LookAndOnGround(curCamYaw, curCamPitch, player.isOnGround()))
                         
                         modCausingAttack = true
                         interactionManager.attackEntity(player, target)
