@@ -159,22 +159,14 @@ object MidnightAssisitClient : ClientModInitializer {
 
             if (currentTarget == null && realAttackPressed) {
                 val crosshair = client.crosshairTarget
+                var hasEntity = false
                 if (crosshair != null && crosshair.type == net.minecraft.util.hit.HitResult.Type.ENTITY) {
                     val hitEntity = (crosshair as EntityHitResult).entity
                     if (hitEntity != null && hitEntity.isAlive && MidnightAssisitConfig.isEntityEnabled(hitEntity) && hitEntity !is PlayerEntity) {
-                        val newTargetId = hitEntity.id
-                        val isNewTarget = lockedTargetId != newTargetId
-                        currentTarget = hitEntity
-                        lockedTargetId = newTargetId
-                        isHunting = true
-                        attackStartTime = System.currentTimeMillis()
-                        if (isNewTarget) ticksSinceTargetAcquired = 0
-                        logger.info("Direct target from crosshair: {} (id={})", hitEntity.name.string, hitEntity.id)
-                    } else {
-                        logger.info("Crosshair entity rejected, falling back to findTarget")
+                        hasEntity = true
                     }
                 }
-                if (currentTarget == null) {
+                if (!hasEntity) {
                     currentTarget = findTarget(client, 5.0)
                     if (currentTarget != null) {
                         val newTargetId = currentTarget.id
@@ -509,6 +501,7 @@ object MidnightAssisitClient : ClientModInitializer {
             }
         }
         if (isHunting) return true
+        if (client.crosshairTarget is EntityHitResult) return false
         val target = findTarget(client, 5.0) ?: return false
         lockedTargetId = target.id
         isHunting = true
@@ -522,8 +515,13 @@ object MidnightAssisitClient : ClientModInitializer {
     @JvmStatic
     fun shouldCancelItemUse(): Boolean {
         val instance = MinecraftClient.getInstance()
-        if (instance.player == null || instance.currentScreen != null) return false
-        return instance.options.useKey.isPressed() && meleeLockOnTargetId != -1 && MidnightAssisitConfig.data.meleeLockOnEnabled && MidnightAssisitConfig.data.globalEnabled
+        val player = instance.player ?: return false
+        if (instance.currentScreen != null) return false
+        if (!MidnightAssisitConfig.data.meleeLockOnEnabled || !MidnightAssisitConfig.data.globalEnabled) return false
+        if (meleeLockOnTargetId == -1) return false
+        if (!instance.options.useKey.isPressed()) return false
+        if (player.mainHandStack.`isOf`(net.minecraft.item.Items.SHIELD) || player.offHandStack.`isOf`(net.minecraft.item.Items.SHIELD)) return false
+        return true
     }
 
     @JvmStatic
