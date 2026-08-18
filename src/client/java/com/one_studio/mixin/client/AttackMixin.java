@@ -9,10 +9,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(MinecraftClient.class)
 public class AttackMixin {
-    @Inject(at = @At("HEAD"), method = "doAttack", cancellable = true)
-    private void onDoAttack(CallbackInfoReturnable<Boolean> cir) {
-        if (MidnightAssisitClient.tryInterceptAttack((MinecraftClient)(Object)this)) {
-            cir.setReturnValue(false);
-        }
-    }
+@Inject(at = @At("HEAD"), method = "doAttack", cancellable = true)
+private void onDoAttack(CallbackInfoReturnable<Boolean> cir) {
+if (MidnightAssisitClient.tryInterceptAttack((MinecraftClient)(Object)this)) {
+cir.setReturnValue(false);
 }
+}
+}
+

@@ -75,10 +75,6 @@ tasks.withType(JavaCompile).configureEach {
 
 jar {
 	inputs.property "archivesName", project.base.archivesName
-
-	from("LICENSE") {
-		rename { "${it}_${inputs.properties.archivesName}"}
-	}
 }
 
 publishing {
