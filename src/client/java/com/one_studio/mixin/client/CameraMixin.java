@@ -10,8 +10,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
 public class CameraMixin {
-    @Inject(method = "render", at = @At("HEAD"))
-    private void onRender(DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo ci) {
-        MidnightAssistClient.applyPartialTicks(deltaTracker.getGameTimeDeltaPartialTick(renderLevel));
-    }
+@Inject(method = "render", at = @At("HEAD"))
+private void onRender(DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo ci) {
+MidnightAssistClient.applyPartialTicks(deltaTracker.getGameTimeDeltaPartialTick(renderLevel));
 }
+}
+
+

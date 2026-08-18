@@ -7,43 +7,44 @@ import net.minecraft.network.chat.Component
 import org.slf4j.LoggerFactory
 
 object MidnightAssist : ModInitializer {
-    private val logger = LoggerFactory.getLogger("midnight-assist")
+private val logger = LoggerFactory.getLogger("midnight-assist")
 
-	override fun onInitialize() {
-		logger.info("Midnight Assist initialized!")
+override fun onInitialize() {
+logger.info("Midnight Assist initialized!")
 
-        MidnightAssistConfig.load()
+MidnightAssistConfig.load()
 
-		CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->
-			dispatcher.register(
-				Commands.literal("midnight")
-					.then(Commands.literal("reload")
-						.executes { context ->
-							MidnightAssistConfig.load()
-							val prefix = Component.translatable("chat.midnight-assist.prefix")
-							val message = Component.translatable("chat.midnight-assist.reloaded")
-							context.source.sendSuccess({ prefix.copy().append(message) }, false)
-							1
-						}
-					)
-					.then(Commands.literal("toggle")
-						.executes { context ->
-							MidnightAssistConfig.data.globalEnabled = !MidnightAssistConfig.data.globalEnabled
-							MidnightAssistConfig.save()
-							val statusKey = if (MidnightAssistConfig.data.globalEnabled) "chat.midnight-assist.enabled" else "chat.midnight-assist.disabled"
-							val prefix = Component.translatable("chat.midnight-assist.prefix")
-							val status = Component.translatable(statusKey)
-							context.source.sendSuccess({ prefix.copy().append(status) }, false)
-							1
-						}
-					)
-					.executes { context ->
-						val prefix = Component.translatable("chat.midnight-assist.prefix")
-						val usage = Component.translatable("chat.midnight-assist.usage")
-						context.source.sendSuccess({ prefix.copy().append(usage) }, false)
-						1
-					}
-			)
-		}
-	}
+CommandRegistrationCallback.EVENT.register { d, _, _ ->
+d.register(
+Commands.literal("midnight")
+.then(Commands.literal("reload")
+.executes { c ->
+MidnightAssistConfig.load()
+val px = Component.translatable("chat.midnight-assist.prefix")
+val ms = Component.translatable("chat.midnight-assist.reloaded")
+c.source.sendSuccess({ px.copy().append(ms) }, false)
+1
 }
+)
+.then(Commands.literal("toggle")
+.executes { c ->
+MidnightAssistConfig.data.globalEnabled = !MidnightAssistConfig.data.globalEnabled
+MidnightAssistConfig.save()
+val sk = if (MidnightAssistConfig.data.globalEnabled) "chat.midnight-assist.enabled" else "chat.midnight-assist.disabled"
+val px = Component.translatable("chat.midnight-assist.prefix")
+val su = Component.translatable(sk)
+c.source.sendSuccess({ px.copy().append(su) }, false)
+1
+}
+)
+.executes { c ->
+val px = Component.translatable("chat.midnight-assist.prefix")
+val usage = Component.translatable("chat.midnight-assist.usage")
+c.source.sendSuccess({ px.copy().append(usage) }, false)
+1
+}
+)
+}
+}
+}
+
