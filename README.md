@@ -2,7 +2,7 @@
 
 # **Give me some ideas💡 for the mod on [the GitHub page](https://github.com/RaekonEK/Midnight-Assist/issues)**
 
-## **💕 Thanks for 13K Downloads 💕**
+## **💕 Thanks for 22K Downloads 💕**
 
 ## prepaire yourself for our new mod. it will be released soon
 
