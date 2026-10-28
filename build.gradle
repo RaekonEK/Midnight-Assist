@@ -1,0 +1,90 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+    id 'org.jetbrains.kotlin.jvm' version "${kotlin_plugin_version}"
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+    maven { url = "https://maven.shedaniel.me/" }
+    maven { url = "https://maven.neoforged.net/releases" }
+}
+
+java {
+    withSourcesJar()
+}
+
+neoForge {
+    version = project.neo_version
+
+    mods {
+        "midnight_assist" {
+            sourceSet sourceSets.main
+        }
+    }
+
+    runs {
+        client {
+            client()
+        }
+    }
+}
+
+jar {
+    manifest {
+        attributes 'MixinConfigs': 'midnight-assist.mixins.json,midnight-assist.client.mixins.json'
+    }
+}
+
+dependencies {
+    implementation "me.shedaniel.cloth:${project.cloth_config_artifact}:${project.cloth_config_version}"
+    jarJar(implementation("org.jetbrains.kotlin:kotlin-stdlib:${project.kotlin_version}")) {
+        version {
+            strictly project.kotlin_jarjar_range
+            prefer project.kotlin_version
+        }
+    }
+    runtimeOnly "org.jetbrains.kotlin:kotlin-stdlib:${project.kotlin_version}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    options.release = project.java_version as int
+}
+
+kotlin {
+    compilerOptions {
+        freeCompilerArgs.add("-Xskip-prerelease-check")
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(project.java_version)
+    }
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("META-INF/mods.toml") {
+        expand "version": inputs.properties.version
+    }
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+}
