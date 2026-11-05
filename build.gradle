@@ -1,0 +1,83 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev.legacyforge' version '2.0.148'
+    id 'org.jetbrains.kotlin.jvm' version "${kotlin_plugin_version}"
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+    maven { url = "https://maven.shedaniel.me/" }
+    maven { url = "https://maven.neoforged.net/releases" }
+}
+
+java {
+    withSourcesJar()
+}
+
+legacyForge {
+    version = "1.20.1-47.4.0"
+
+    mods {
+        "midnight_assist" {
+            sourceSet sourceSets.main
+        }
+    }
+
+    runs {
+        client {
+            client()
+        }
+    }
+}
+
+mixin {
+    add sourceSets.main, 'midnight-assist.refmap.json'
+    config 'midnight-assist.mixins.json'
+    config 'midnight-assist.client.mixins.json'
+}
+
+configurations {
+    embed
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("META-INF/mods.toml") {
+        expand "version": inputs.properties.version
+    }
+}
+
+dependencies {
+    modImplementation "me.shedaniel.cloth:${project.cloth_config_artifact}:${project.cloth_config_version}"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:${project.kotlin_version}"
+    embed "org.jetbrains.kotlin:kotlin-stdlib:${project.kotlin_version}"
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    options.release = project.java_version as int
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(project.java_version)
+    }
+}
+
+jar {
+    manifest {
+        attributes 'MixinConfigs': 'midnight-assist.mixins.json,midnight-assist.client.mixins.json'
+    }
+    from { configurations.embed.collect { it.isDirectory() ? it : zipTree(it) } }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class', 'META-INF/versions/*/module-info.class'
+}
