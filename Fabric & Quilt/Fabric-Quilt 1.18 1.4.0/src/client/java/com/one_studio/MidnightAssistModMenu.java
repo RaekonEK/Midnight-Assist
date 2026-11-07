@@ -1,4 +1,4 @@
-package com.one_studio;
+﻿package com.one_studio;
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
@@ -126,26 +126,6 @@ public class MidnightAssistModMenu implements ModMenuApi {
             .setSaveConsumer(v -> data.aimAssistDistance = v)
             .build());
 
-        EnumListEntry<Preset> presetEntry = entryBuilder.startEnumSelector(
-                new TranslatableComponent("option.midnight-assist.preset"),
-                Preset.class,
-                data.lastAppliedPreset)
-            .setDefaultValue(Preset.NONE)
-            .setEnumNameProvider(e -> new TranslatableComponent(((Preset) e).getTranslationKey()))
-            .setTooltip(new TranslatableComponent("option.midnight-assist.preset.tooltip"))
-            .setSaveConsumer(v -> data.lastAppliedPreset = v)
-            .build();
-        targeting.addEntry(presetEntry);
-
-        List<String> sortedEntities = new ArrayList<>(data.enabledEntities.keySet());
-        Collections.sort(sortedEntities);
-
-        List<AbstractConfigListEntry> entityEntries = new ArrayList<>();
-        List<String> entityIds = new ArrayList<>();
-        List<BooleanListEntry> entityToggles = new ArrayList<>();
-
-        for (String id : sortedEntities) {
-            var entityType = MidnightAssistConfig.getEntityType(id);
             if (entityType == null) continue;
 
             var entityName = new TranslatableComponent(entityType.getDescriptionId());
@@ -165,7 +145,6 @@ public class MidnightAssistModMenu implements ModMenuApi {
             entityEntries,
             false));
 
-        PresetWatcher.INSTANCE.watch(presetEntry, entityIds, entityToggles);
 
         var weapons = builder.getOrCreateCategory(new TranslatableComponent("category.midnight-assist.weapons"));
 
@@ -176,7 +155,6 @@ public class MidnightAssistModMenu implements ModMenuApi {
             Minecraft.getInstance().setScreen(new WeaponSelectScreen(current, parent));
         }));
 
-        for (WeaponProfile profile : data.weaponProfiles) {
             weapons.addEntry(new ActionEntry(new TextComponent("\u25B8 ").append(profileDisplayName(profile)), weaponProfileIcon(profile), () -> {
                 Screen current = Minecraft.getInstance().screen;
                 Minecraft.getInstance().setScreen(createWeaponProfileScreen(profile, current, parent));

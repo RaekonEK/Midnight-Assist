@@ -1,4 +1,4 @@
-package com.one_studio;
+﻿package com.one_studio;
 
 import me.shedaniel.clothconfig2.api.AbstractConfigListEntry;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
@@ -126,16 +126,6 @@ public class MidnightAssistModMenu {
             .setTooltip(Component.translatable("option.midnight-assist.preset.tooltip"))
             .setSaveConsumer(v -> data.lastAppliedPreset = v)
             .build();
-        targeting.addEntry(presetEntry);
-
-        List<String> sortedEntities = new ArrayList<>(data.enabledEntities.keySet());
-        Collections.sort(sortedEntities);
-
-        List<AbstractConfigListEntry> entityEntries = new ArrayList<>();
-        List<String> entityIds = new ArrayList<>();
-        List<BooleanListEntry> entityToggles = new ArrayList<>();
-
-        for (String id : sortedEntities) {
             var entityType = MidnightAssistConfig.getEntityType(id);
             if (entityType == null) continue;
 
@@ -156,7 +146,6 @@ public class MidnightAssistModMenu {
             entityEntries,
             false));
 
-        PresetWatcher.INSTANCE.watch(presetEntry, entityIds, entityToggles);
 
         var weapons = builder.getOrCreateCategory(Component.translatable("category.midnight-assist.weapons"));
 
@@ -165,7 +154,6 @@ public class MidnightAssistModMenu {
         weapons.addEntry(new ActionEntry(Component.translatable("button.midnight-assist.add_weapon"), () -> {
             Screen current = Minecraft.getInstance().screen;
             Minecraft.getInstance().setScreen(new WeaponSelectScreen(current, parent));
-        }));
 
         for (WeaponProfile profile : data.weaponProfiles) {
             weapons.addEntry(new ActionEntry(Component.literal("\u25B8 ").append(profileDisplayName(profile)), weaponProfileIcon(profile), () -> {
