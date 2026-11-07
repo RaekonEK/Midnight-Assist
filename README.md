@@ -3,11 +3,11 @@
 إصدار من مود Midnight Assist للإصدار 1.3.2، مخصص لـ Minecraft 26.3.
 
 ## الملفات المضمنة
-- build/libs/midnight-assist-1.3.2-26.3.jar (الملف الأصلي من Modrinth)
-- src/main/java/ (كود المصدر المستخرج عبر REA)
+- ملف الـ jar الأصلي من Modrinth (مع الفرع)
+- src/main/java/ (كود المصدر المستخرج عبر Reverse Engineering)
 
 ## التثبيت
 انسخ ملف الـ jar إلى مجلد mods.
 
 ## المصدران
-الملف الأصلي من Modrinth مع كود مصدر مستخرج via Reverse Engineering.
+ملف الـ jar الأصلي من Modrinث مع كود مصدر مستخرج via REA.

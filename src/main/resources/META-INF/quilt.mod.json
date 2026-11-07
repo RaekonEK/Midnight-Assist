@@ -1,0 +1,26 @@
+﻿modLoader="quilt"
+loaderVersion="[0.19,)"
+license="MIT"
+
+[[mods]]
+modId="midnight_assist"
+version="1.3.2"
+displayName="Midnight Assist"
+description='''
+Aim assist for gamepads. Make your console-like experience much better.
+'''
+authors="1studios"
+
+[[dependencies.midnight_assist]]
+modId="quilt_loader"
+mandatory=true
+versionRange="[0.19,)"
+ordering="NONE"
+side="client"
+
+[[dependencies.midnight_assist]]
+modId="minecraft"
+mandatory=true
+versionRange="[26.3,)"
+ordering="NONE"
+side="client"
