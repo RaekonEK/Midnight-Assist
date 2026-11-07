@@ -1,0 +1,41 @@
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/1studios/midnight-assist/issues"
+displayURL = "https://github.com/1studios/midnight-assist"
+iconFile = "assets/midnight-assist/icon.png"
+authors = "1studios"
+
+[[mods]]
+modId = "midnight_assist"
+version = "${version}"
+displayName = "Midnight Assist"
+description = "Aim assist for better gamepad experience"
+logoFile = "assets/midnight-assist/icon.png"
+
+[[dependencies.midnight_assist]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.10.64,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.midnight_assist]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.10,1.21.11)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.midnight_assist]]
+modId = "cloth_config"
+type = "required"
+versionRange = "[15.0.140,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[mixins]]
+config = "midnight-assist.mixins.json"
+
+[[mixins]]
+config = "midnight-assist.client.mixins.json"
