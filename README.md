@@ -1,4 +1,4 @@
-﻿# Midnight Assist 1.1.0 - Minecraft 1.21 (Fabric & Quilt)
+﻿# Midnight Assist 1.1.0 - Minecraft 1.20 (Fabric & Quilt)
 
 ## الملفات المضمنة
 - ملف الـ jar الأصلي من Modrinth
