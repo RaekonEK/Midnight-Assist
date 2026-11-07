@@ -20,5 +20,5 @@ side="client"
 [[dependencies.midnight_assist]]
 modId="minecraft"
 mandatory=true
-versionRange="[1.21.2,)"
+versionRange="[1.21-1.21.3,)"
 side="client"
