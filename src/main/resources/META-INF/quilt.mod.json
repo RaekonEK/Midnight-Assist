@@ -1,10 +1,10 @@
 ﻿modLoader="quilt"
-loaderVersion="[0.19,)"
+loaderVersion="[0.18,)"
 license="MIT"
 
 [[mods]]
 modId="midnight_assist"
-version="1.2.0"
+version="1.1.0"
 displayName="Midnight Assist"
 description='''
 Aim assist for gamepads.
@@ -14,11 +14,11 @@ authors="1studios"
 [[dependencies.midnight_assist]]
 modId="quilt_loader"
 mandatory=true
-versionRange="[0.19,)"
+versionRange="[0.18,)"
 side="client"
 
 [[dependencies.midnight_assist]]
 modId="minecraft"
 mandatory=true
-versionRange="[1.20,)"
+versionRange="[1.21,)"
 side="client"
