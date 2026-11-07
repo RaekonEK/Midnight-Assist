@@ -1,9 +1,9 @@
-﻿# Midnight Assist 1.3.2 - Minecraft 26.3 (Fabric & Quilt)
+﻿# Midnight Assist 1.3.2 - Minecraft 26.2 (Fabric & Quilt)
 
-إصدار من مود Midnight Assist للإصدار 1.3.2، مخصص لـ Minecraft 26.3.
+إصدار من مود Midnight Assist للإصدار 1.3.2، مخصص لـ Minecraft 26.2.
 
 ## الملفات المضمنة
-- ملف الـ jar الأصلي من Modrinth (مع الفرع)
+- ملف الـ jar الأصلي من Modrinth
 - src/main/java/ (كود المصدر المستخرج عبر Reverse Engineering)
 
 ## التثبيت
