@@ -1,4 +1,4 @@
-﻿package com.one_studio;
+package com.one_studio;
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
@@ -126,6 +126,25 @@ public class MidnightAssistModMenu implements ModMenuApi {
             .setSaveConsumer(v -> data.aimAssistDistance = v)
             .build());
 
+
+        List<String> sortedEntities = new ArrayList<>(data.enabledEntities.keySet());
+        Collections.sort(sortedEntities);
+
+        List<AbstractConfigListEntry> entityEntries = new ArrayList<>();
+        List<String> entityIds = new ArrayList<>();
+        List<BooleanListEntry> entityToggles = new ArrayList<>();
+
+        for (String id : sortedEntities) {
+            var entityType = MidnightAssistConfig.getEntityType(id);
+            if (entityType == null) continue;
+
+            var entityName = new TranslatableComponent(entityType.getDescriptionId());
+            boolean smartDefault = MidnightAssistConfig.isSmartDefault(entityType, id);
+
+            BooleanListEntry toggle = entryBuilder.startBooleanToggle(entityName, data.enabledEntities.getOrDefault(id, smartDefault))
+                .setDefaultValue(smartDefault)
+                .setSaveConsumer(value -> data.enabledEntities.put(id, value))
+                .build();
             entityIds.add(id);
             entityToggles.add(toggle);
             entityEntries.add(toggle);
@@ -136,6 +155,7 @@ public class MidnightAssistModMenu implements ModMenuApi {
             entityEntries,
             false));
 
+
         var weapons = builder.getOrCreateCategory(new TranslatableComponent("category.midnight-assist.weapons"));
 
         weapons.addEntry(entryBuilder.startTextDescription(new TranslatableComponent("option.midnight-assist.per_weapon_customization")).build());
@@ -145,6 +165,7 @@ public class MidnightAssistModMenu implements ModMenuApi {
             Minecraft.getInstance().setScreen(new WeaponSelectScreen(current, parent));
         }));
 
+        for (WeaponProfile profile : data.weaponProfiles) {
             weapons.addEntry(new ActionEntry(new TextComponent("\u25B8 ").append(profileDisplayName(profile)), weaponProfileIcon(profile), () -> {
                 Screen current = Minecraft.getInstance().screen;
                 Minecraft.getInstance().setScreen(createWeaponProfileScreen(profile, current, parent));
@@ -155,6 +176,7 @@ public class MidnightAssistModMenu implements ModMenuApi {
     }
 
     public static Screen createWeaponProfileScreen(WeaponProfile profile, Screen configScreen, Screen configParent) {
+        ConfigBuilder builder = ConfigBuilder.create()
             .setParentScreen(configScreen)
             .setTitle(new TranslatableComponent("title.midnight-assist.weapon_profile", profileDisplayName(profile)))
             .setSavingRunnable(MidnightAssistConfig.INSTANCE::save);

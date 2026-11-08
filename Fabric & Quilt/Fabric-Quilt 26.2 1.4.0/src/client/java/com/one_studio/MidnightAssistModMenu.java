@@ -1,4 +1,4 @@
-﻿package com.one_studio;
+package com.one_studio;
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
@@ -124,8 +124,18 @@ public class MidnightAssistModMenu implements ModMenuApi {
             .setSaveConsumer(v -> data.aimAssistDistance = v)
             .build());
 
-        EnumListEntry<Preset> presetEntry = entryBuilder.startEnumSelector(
-                Component.translatable("option.midnight-assist.preset"),
+
+        List<String> sortedEntities = new ArrayList<>(data.enabledEntities.keySet());
+        Collections.sort(sortedEntities);
+
+        List<AbstractConfigListEntry> entityEntries = new ArrayList<>();
+        List<String> entityIds = new ArrayList<>();
+        List<BooleanListEntry> entityToggles = new ArrayList<>();
+
+        for (String id : sortedEntities) {
+            var entityType = MidnightAssistConfig.getEntityType(id);
+            if (entityType == null) continue;
+
             var entityName = Component.translatable(entityType.getDescriptionId());
             boolean smartDefault = MidnightAssistConfig.isSmartDefault(entityType, id);
 
@@ -144,6 +154,7 @@ public class MidnightAssistModMenu implements ModMenuApi {
             false));
 
 
+        var weapons = builder.getOrCreateCategory(Component.translatable("category.midnight-assist.weapons"));
 
         weapons.addEntry(entryBuilder.startTextDescription(Component.translatable("option.midnight-assist.per_weapon_customization")).build());
 
@@ -154,6 +165,7 @@ public class MidnightAssistModMenu implements ModMenuApi {
 
         for (WeaponProfile profile : data.weaponProfiles) {
             weapons.addEntry(new ActionEntry(Component.literal("\u25B8 ").append(profileDisplayName(profile)), weaponProfileIcon(profile), () -> {
+                Screen current = Minecraft.getInstance().gui.screen();
                 Minecraft.getInstance().setScreenAndShow(createWeaponProfileScreen(profile, current, parent));
             }));
         }

@@ -700,6 +700,7 @@ object MidnightAssistClient {
         pendingAttack = false
         pendingTargetId = -1
         camInitialized = false
+        assistTargetId = -1
     }
 
     private fun isStillValidTarget(player: Player, target: Entity): Boolean {
