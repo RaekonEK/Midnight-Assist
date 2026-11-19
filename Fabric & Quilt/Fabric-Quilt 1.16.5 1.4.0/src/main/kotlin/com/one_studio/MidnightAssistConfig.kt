@@ -3,19 +3,16 @@ package com.one_studio
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
-import me.shedaniel.autoconfig.ConfigData as AutoConfigData
-import me.shedaniel.autoconfig.annotation.Config
 import net.fabricmc.loader.api.FabricLoader
-import net.minecraft.core.Registry
-import net.minecraft.world.entity.Entity
-import net.minecraft.world.entity.EntityType
-import net.minecraft.world.entity.MobCategory
-import net.minecraft.world.entity.player.Player
-import net.minecraft.world.item.BlockItem
-import net.minecraft.world.item.ItemStack
+import net.minecraft.util.registry.Registry
+import net.minecraft.entity.Entity
+import net.minecraft.entity.EntityType
+import net.minecraft.entity.SpawnGroup
+import net.minecraft.entity.player.PlayerEntity
+import net.minecraft.item.BlockItem
+import net.minecraft.item.ItemStack
 import java.io.File
 
-@Config(name = "midnight-assist")
 data class ConfigData(
     var configVersion: Int = 7,
     @JvmField var globalEnabled: Boolean = true,
@@ -35,7 +32,7 @@ data class ConfigData(
     @JvmField val enabledEntities: MutableMap<String, Boolean> = mutableMapOf(),
     @JvmField val priorityEntities: MutableList<String> = mutableListOf(),
     @JvmField val weaponProfiles: MutableList<WeaponProfile> = mutableListOf()
-) : AutoConfigData
+)
 
 data class WeaponProfile(
     @JvmField var kind: String = "item",
@@ -131,8 +128,8 @@ object MidnightAssistConfig {
     fun isSmartDefault(type: EntityType<*>, id: String): Boolean {
         if (id == "minecraft:player") return false
 
-        val category = type.category
-        val hasAI = category != MobCategory.MISC
+        val category = type.spawnGroup
+        val hasAI = category != SpawnGroup.MISC
 
         val isSpecialMob = id.contains("golem") || id.contains("villager")
 
@@ -325,12 +322,11 @@ object MidnightAssistConfig {
                 return@forEach
             }
 
-            val category = type.category
+            val category = type.spawnGroup
 
-            val isHostile = category == MobCategory.MONSTER
-            val isPassive = category == MobCategory.CREATURE || category == MobCategory.AMBIENT ||
-                            category == MobCategory.WATER_CREATURE || category == MobCategory.WATER_AMBIENT ||
-                            category == MobCategory.UNDERGROUND_WATER_CREATURE
+            val isHostile = category == SpawnGroup.MONSTER
+            val isPassive = category == SpawnGroup.CREATURE || category == SpawnGroup.AMBIENT ||
+                            category == SpawnGroup.WATER_CREATURE || category == SpawnGroup.WATER_AMBIENT
 
             val neutralKeywords = listOf("spider", "enderman", "piglin", "wolf", "bee", "golem", "llama", "bear", "dolphin", "goat", "panda", "warden")
             val isNeutral = neutralKeywords.any { id.contains(it) }
@@ -360,7 +356,7 @@ object MidnightAssistConfig {
 
     @JvmStatic
     fun isEntityEnabled(entity: Entity): Boolean {
-        if (entity is Player) return false
+        if (entity is PlayerEntity) return false
 
         val id = Registry.ENTITY_TYPE.getKey(entity.type).toString()
         return data.enabledEntities[id] ?: isSmartDefault(entity.type, id)

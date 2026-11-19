@@ -26,9 +26,6 @@
 				"value": "com.one_studio.MidnightAssistClient",
 				"adapter": "kotlin"
 			}
-		],
-		"modmenu": [
-			"com.one_studio.MidnightAssistModMenu"
 		]
 	},
 	"mixins": [
@@ -43,8 +40,6 @@
 		"fabric": "*",
 		"minecraft": ">=1.16 <1.17",
 		"java": ">=8",
-		"fabric-language-kotlin": "*",
-		"modmenu": "*",
-		"cloth-config2": "*"
+		"fabric-language-kotlin": "*"
 	}
 }

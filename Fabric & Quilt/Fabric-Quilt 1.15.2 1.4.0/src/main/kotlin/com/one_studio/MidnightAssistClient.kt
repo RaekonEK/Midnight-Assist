@@ -3,30 +3,31 @@ package com.one_studio
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
-import com.mojang.blaze3d.platform.InputConstants
-import net.minecraft.client.KeyMapping
-import net.minecraft.client.Minecraft
-import net.minecraft.client.player.LocalPlayer
-import net.minecraft.core.BlockPos
-import net.minecraft.core.Registry
-import net.minecraft.network.chat.Component
-import net.minecraft.network.chat.TranslatableComponent
-import net.minecraft.resources.ResourceLocation
-import net.minecraft.util.Mth
-import net.minecraft.world.InteractionHand
-import net.minecraft.world.InteractionResult
-import net.minecraft.world.InteractionResultHolder
-import net.minecraft.world.entity.Entity
-import net.minecraft.world.entity.EntityType
-import net.minecraft.world.entity.LivingEntity
-import net.minecraft.world.entity.Mob
-import net.minecraft.world.entity.player.Player
-import net.minecraft.world.item.BlockItem
+import net.minecraft.client.util.InputUtil
+import org.lwjgl.glfw.GLFW
+import net.minecraft.client.options.KeyBinding
+import net.minecraft.client.MinecraftClient
+import net.minecraft.client.network.ClientPlayerEntity
+import net.minecraft.util.math.BlockPos
+import net.minecraft.util.registry.Registry
+import net.minecraft.text.Text
+import net.minecraft.text.TranslatableText
+import net.minecraft.util.Identifier
+import net.minecraft.util.math.MathHelper
+import net.minecraft.util.Hand
+import net.minecraft.util.ActionResult
+import net.minecraft.util.TypedActionResult
+import net.minecraft.entity.Entity
+import net.minecraft.entity.EntityType
+import net.minecraft.entity.LivingEntity
+import net.minecraft.entity.mob.MobEntity
+import net.minecraft.entity.player.PlayerEntity
+import net.minecraft.item.BlockItem
 
-import net.minecraft.world.item.Items
+import net.minecraft.item.Items
 
-import net.minecraft.world.phys.BlockHitResult
-import net.minecraft.world.phys.Vec3
+import net.minecraft.util.hit.BlockHitResult
+import net.minecraft.util.math.Vec3d
 
 import kotlin.math.acos
 import kotlin.math.cos
@@ -34,7 +35,7 @@ import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.jvm.JvmStatic
-import org.slf4j.LoggerFactory
+
 import com.one_studio.TargetPriority
 
 import net.fabricmc.fabric.api.event.player.UseBlockCallback
@@ -42,13 +43,14 @@ import net.fabricmc.fabric.api.event.player.UseItemCallback
 import net.fabricmc.fabric.api.event.player.UseEntityCallback
 
 object MidnightAssistClient : ClientModInitializer {
-    private val logger = LoggerFactory.getLogger("MidnightAssist")
+    private fun log(vararg args: Any?) {}
+
 
     private const val KEY_CATEGORY = "key.categories.midnight-assist.main"
-    private val keyToggle = KeyBindingHelper.registerKeyBinding(KeyMapping("key.midnight-assist.toggle", InputConstants.KEY_J, KEY_CATEGORY))
-    private val keyLock = KeyBindingHelper.registerKeyBinding(KeyMapping("key.midnight-assist.lock", InputConstants.KEY_N, KEY_CATEGORY))
-    private val keySettings = KeyBindingHelper.registerKeyBinding(KeyMapping("key.midnight-assist.settings", InputConstants.KEY_K, KEY_CATEGORY))
-    private val keyEntityList = KeyBindingHelper.registerKeyBinding(KeyMapping("key.midnight-assist.entity_list", InputConstants.KEY_O, KEY_CATEGORY))
+    private val keyToggle = KeyBindingHelper.registerKeyBinding(KeyBinding("key.midnight-assist.toggle", GLFW.GLFW_KEY_J, KEY_CATEGORY))
+    private val keyLock = KeyBindingHelper.registerKeyBinding(KeyBinding("key.midnight-assist.lock", GLFW.GLFW_KEY_N, KEY_CATEGORY))
+    private val keySettings = KeyBindingHelper.registerKeyBinding(KeyBinding("key.midnight-assist.settings", GLFW.GLFW_KEY_K, KEY_CATEGORY))
+    private val keyEntityList = KeyBindingHelper.registerKeyBinding(KeyBinding("key.midnight-assist.entity_list", GLFW.GLFW_KEY_O, KEY_CATEGORY))
 
     private var lockedTargetId: Int = -1
     private var isHunting: Boolean = false
@@ -74,6 +76,7 @@ object MidnightAssistClient : ClientModInitializer {
     private val MELEE_LOCKON_GRACE_TICKS = 5
     private var pendingMeleeLockClicks: Int = 0
     private var meleeLockSuppressed: Boolean = false
+    private var justAttacked: Boolean = false
     private var meleeTargetType: EntityType<*>? = null
 
     // Auto aim assist state
@@ -98,24 +101,24 @@ object MidnightAssistClient : ClientModInitializer {
     private enum class ItemMode { NONE, MELEE, EMPTY, OTHER }
 
     override fun onInitializeClient() {
-        logger.info("MidnightAssistClient initialized")
+        log("MidnightAssistClient initialized")
 
         UseBlockCallback.EVENT.register { _, _, _, _ ->
-            if (shouldCancelItemUse()) InteractionResult.FAIL else InteractionResult.PASS
+            if (shouldCancelItemUse()) ActionResult.FAIL else ActionResult.PASS
         }
         UseItemCallback.EVENT.register { player, _, hand ->
-            val stack = player.getItemInHand(hand)
-            if (shouldCancelItemUse()) InteractionResultHolder.fail(stack) else InteractionResultHolder.pass(stack)
+            val stack = player.getStackInHand(hand)
+            if (shouldCancelItemUse()) TypedActionResult.fail(stack) else TypedActionResult.pass(stack)
         }
         UseEntityCallback.EVENT.register { _, _, _, _, _ ->
-            if (shouldCancelItemUse()) InteractionResult.FAIL else InteractionResult.PASS
+            if (shouldCancelItemUse()) ActionResult.FAIL else ActionResult.PASS
         }
 
         ClientTickEvents.END_CLIENT_TICK.register(ClientTickEvents.EndTick { PresetWatcher.tick() })
 
-        ClientTickEvents.START_CLIENT_TICK.register(ClientTickEvents.StartTick { client: Minecraft ->
+        ClientTickEvents.START_CLIENT_TICK.register(ClientTickEvents.StartTick { client: MinecraftClient ->
             val player = client.player ?: return@StartTick
-            val level = client.level ?: return@StartTick
+            val level = client.world ?: return@StartTick
 
             if (!MidnightAssistConfig.data.globalEnabled) {
                 resetCameraState()
@@ -123,7 +126,7 @@ object MidnightAssistClient : ClientModInitializer {
                 return@StartTick
             }
 
-            val handProfile = MidnightAssistConfig.findWeaponProfile(player.mainHandItem)
+            val handProfile = MidnightAssistConfig.findWeaponProfile(player.getMainHandStack())
             if (handProfile != null && !handProfile.enabled) {
                 resetCameraState()
                 resetAssistState()
@@ -134,7 +137,7 @@ object MidnightAssistClient : ClientModInitializer {
 
             meleeCameraRunning = false
 
-            val entityReach = if (player.abilities.instabuild) 5.0 else 3.0
+            val entityReach = if (player.abilities.creativeMode) 5.0 else 3.0
 
             if (!effMeleeLockOnEnabled()) pendingMeleeLockClicks = 0
 
@@ -147,10 +150,10 @@ object MidnightAssistClient : ClientModInitializer {
                 if (effMeleeLockMode() == MeleeLockMode.TOGGLE) {
                     val clicks = pendingMeleeLockClicks
                     pendingMeleeLockClicks = 0
-                    if (clicks > 0 && client.screen == null) {
+                    if (clicks > 0 && client.currentScreen == null) {
                         repeat(clicks) {
                             if (meleeLockOnTargetId != -1) {
-                                logger.info("Melee lock-on released")
+                                log("Melee lock-on released")
                                 releaseMeleeLock()
                                 meleeLockSuppressed = false
                             } else if (!isHunting && meleeLockAllowed) {
@@ -170,7 +173,7 @@ object MidnightAssistClient : ClientModInitializer {
                         if (meleeLockOnTargetId != -1) {
                             meleeUseReleaseTicks++
                             if (meleeUseReleaseTicks >= MELEE_LOCKON_GRACE_TICKS) {
-                                logger.info("Melee lock-on released")
+                                log("Melee lock-on released")
                                 releaseMeleeLock()
                             }
                         }
@@ -178,25 +181,25 @@ object MidnightAssistClient : ClientModInitializer {
                 }
 
                 if (meleeLockOnTargetId != -1) {
-                    val target = level.getEntity(meleeLockOnTargetId)
-                    if (target == null || !target.isAlive || target.distanceTo(player) > entityReach || !player.hasLineOfSight(target)) {
+                    val target = level.getEntityById(meleeLockOnTargetId)
+                    if (target == null || !target.isAlive || target.distanceTo(player) > entityReach || !player.canSee(target)) {
                         handleMeleeTargetGone(client, player)
                     }
                 }
             }
 
             val meleeTarget = if (effMeleeLockOnEnabled() && meleeLockOnTargetId != -1)
-                level.getEntity(meleeLockOnTargetId) else null
+                level.getEntityById(meleeLockOnTargetId) else null
 
             var currentTarget: Entity? = null
 
             if (meleeTarget != null && meleeTarget.isAlive) {
                 currentTarget = meleeTarget
-                lockedTargetId = meleeTarget.id
+                lockedTargetId = meleeTarget.entityId
                 isHunting = true
             } else if (lockedTargetId != -1) {
-                val entity = level.getEntity(lockedTargetId)
-                if (entity != null && entity.isAlive && entity.distanceTo(player) <= entityReach && player.hasLineOfSight(entity)) {
+                val entity = level.getEntityById(lockedTargetId)
+                if (entity != null && entity.isAlive && entity.distanceTo(player) <= entityReach && player.canSee(entity)) {
                     currentTarget = entity
                 } else {
                     lockedTargetId = -1
@@ -206,14 +209,14 @@ object MidnightAssistClient : ClientModInitializer {
             }
 
             if (pendingTargetId != -1 && currentTarget == null) {
-                val target = level.getEntity(pendingTargetId)
-                if (target != null && target.isAlive && target.distanceTo(player) <= 5.0 && player.hasLineOfSight(target)) {
+                val target = level.getEntityById(pendingTargetId)
+                if (target != null && target.isAlive && target.distanceTo(player) <= 5.0 && player.canSee(target)) {
                     currentTarget = target
-                    lockedTargetId = target.id
+                    lockedTargetId = target.entityId
                     isHunting = true
                     attackStartTime = System.currentTimeMillis()
                     ticksSinceTargetAcquired = 0
-                    logger.info("Acquired intercepted target: {} (id={})", target.name.string, target.id)
+                    log("Acquired intercepted target: {} (id={})", target.name.string, target.entityId)
                 } else {
                     pendingTargetId = -1
                     pendingAttack = false
@@ -229,23 +232,23 @@ object MidnightAssistClient : ClientModInitializer {
             val realAttackPressed = realPressed || pendingAttack
 
             if (currentTarget == null && realAttackPressed) {
-                val hitEntity = client.crosshairPickEntity
+                val hitEntity = client.targetedEntity
                 var hasEntity = false
                 if (hitEntity != null) {
-                    if (hitEntity.isAlive && MidnightAssistConfig.isEntityEnabled(hitEntity) && hitEntity !is Player) {
+                    if (hitEntity.isAlive && MidnightAssistConfig.isEntityEnabled(hitEntity) && hitEntity !is PlayerEntity) {
                         hasEntity = true
                     }
                 }
                 if (!hasEntity) {
                     currentTarget = findTarget(client, 5.0)
                     if (currentTarget != null) {
-                        val newTargetId = currentTarget.id
+                        val newTargetId = currentTarget.entityId
                         val isNewTarget = lockedTargetId != newTargetId
                         lockedTargetId = newTargetId
                         isHunting = true
                         attackStartTime = System.currentTimeMillis()
                         if (isNewTarget) ticksSinceTargetAcquired = 0
-                        logger.info("Found target via findTarget: {} (id={})", currentTarget.name.string, currentTarget.id)
+                        log("Found target via findTarget: {} (id={})", currentTarget.name.string, currentTarget.entityId)
                     }
                 }
             }
@@ -257,6 +260,7 @@ object MidnightAssistClient : ClientModInitializer {
                 lastLockTargetId = -1
                 pendingAttack = false
                 ticksSinceTargetAcquired = 0
+                justAttacked = false
             }
 
             if (currentTarget == null && pendingAttack) {
@@ -268,8 +272,8 @@ object MidnightAssistClient : ClientModInitializer {
             }
 
             if (effMeleeLockOnEnabled() && meleeLockOnTargetId != -1) {
-                val target = level.getEntity(meleeLockOnTargetId)
-                if (target != null && target.isAlive && target.distanceTo(player) <= entityReach && player.hasLineOfSight(target)) {
+                val target = level.getEntityById(meleeLockOnTargetId)
+                if (target != null && target.isAlive && target.distanceTo(player) <= entityReach && player.canSee(target)) {
                     lockedCameraSoft(player, target)
                     meleeCameraRunning = true
                     camInitialized = true
@@ -299,25 +303,25 @@ object MidnightAssistClient : ClientModInitializer {
             }
         })
 
-        ClientTickEvents.START_CLIENT_TICK.register(ClientTickEvents.StartTick { client: Minecraft ->
+        ClientTickEvents.START_CLIENT_TICK.register(ClientTickEvents.StartTick { client: MinecraftClient ->
             handleKeybinds(client)
             assistTick(client)
         })
 
-        ClientTickEvents.END_CLIENT_TICK.register(ClientTickEvents.EndTick { client: Minecraft ->
+        ClientTickEvents.END_CLIENT_TICK.register(ClientTickEvents.EndTick { client: MinecraftClient ->
             val player = client.player ?: return@EndTick
-            val gameMode = client.gameMode ?: return@EndTick
+            val gameMode = client.interactionManager ?: return@EndTick
 
-            val entityReach = if (player.abilities.instabuild) 5.0 else 3.0
+            val entityReach = if (player.abilities.creativeMode) 5.0 else 3.0
 
             val attackHeld = isAttackPressed(client)
 
             if (isHunting && lockedTargetId != -1 && (pendingAttack || attackHeld)) {
-                val target = client.level?.getEntity(lockedTargetId)
+                val target = client.world?.getEntityById(lockedTargetId)
                 if (target != null && target.isAlive && target.distanceTo(player) <= entityReach) {
                     val onTarget = isTargetUnderCrosshair(client, target)
                     val cameraAligned = isCameraAligned(player, target)
-                    val cooldown = player.getAttackStrengthScale(0.0f)
+                    val cooldown = player.getAttackCooldownProgress(0.0f)
                     if (attackStartTime == 0L) attackStartTime = System.currentTimeMillis()
                     val elapsed = System.currentTimeMillis() - attackStartTime
 
@@ -329,13 +333,14 @@ object MidnightAssistClient : ClientModInitializer {
                     val shouldRelease = ticksSinceTargetAcquired > maxAlignTicks && !cameraAligned
 
                     if (canAttack) {
-                        logger.info("ATTACK! target={} (id={}) onTarget={} cameraAligned={} cooldown={} elapsed={} ticks={}", target.name.string, target.id, onTarget, cameraAligned, cooldown, elapsed, ticksSinceTargetAcquired)
+                        log("ATTACK! target={} (id={}) onTarget={} cameraAligned={} cooldown={} elapsed={} ticks={}", target.name.string, target.entityId, onTarget, cameraAligned, cooldown, elapsed, ticksSinceTargetAcquired)
 
-                        gameMode.attack(player, target)
-                        player.swing(InteractionHand.MAIN_HAND, true)
-                        recentlyAttacked[target.id] = System.currentTimeMillis()
+                        gameMode.attackEntity(player, target)
+                        player.swingHand(Hand.MAIN_HAND)
+                        recentlyAttacked[target.entityId] = System.currentTimeMillis()
                         attackStartTime = System.currentTimeMillis()
                         pendingAttack = false
+                        justAttacked = true
 
                         if (!attackHeld && meleeLockOnTargetId == -1) {
                             isHunting = false
@@ -346,9 +351,10 @@ object MidnightAssistClient : ClientModInitializer {
                             pendingAttack = false
                             pendingTargetId = -1
                             ticksSinceTargetAcquired = 0
+                            justAttacked = false
                         }
                     } else if (shouldRelease && meleeLockOnTargetId == -1) {
-                        logger.info("Releasing target - couldn't align camera after {} ticks", maxAlignTicks)
+                        log("Releasing target - couldn't align camera after {} ticks", maxAlignTicks)
                         isHunting = false
                         lockedTargetId = -1
                         lockOnCamera = null
@@ -358,10 +364,10 @@ object MidnightAssistClient : ClientModInitializer {
                         pendingTargetId = -1
                         ticksSinceTargetAcquired = 0
                     } else {
-                        if (elapsed % 200L < 50L) logger.info("Waiting: onTarget={} cameraAligned={} cooldown={} elapsed={} ticks={}", onTarget, cameraAligned, cooldown, elapsed, ticksSinceTargetAcquired)
+                        if (elapsed % 200L < 50L) log("Waiting: onTarget={} cameraAligned={} cooldown={} elapsed={} ticks={}", onTarget, cameraAligned, cooldown, elapsed, ticksSinceTargetAcquired)
                     }
                 } else {
-                    logger.info("Target lost: id={}", lockedTargetId)
+                    log("Target lost: id={}", lockedTargetId)
                     isHunting = false
                     lockedTargetId = -1
                     lockOnCamera = null
@@ -371,27 +377,47 @@ object MidnightAssistClient : ClientModInitializer {
                     ticksSinceTargetAcquired = 0
                 }
             }
+
+            // Deferred release: after a single-click attack, release the target
+            // once the attack key is no longer held (fixes "keeps tracking after hit")
+            if (justAttacked && !attackHeld && meleeLockOnTargetId == -1 && lockedTargetId != -1) {
+                isHunting = false
+                lockedTargetId = -1
+                lockOnCamera = null
+                lastLockTargetId = -1
+                camInitialized = false
+                pendingAttack = false
+                pendingTargetId = -1
+                ticksSinceTargetAcquired = 0
+                justAttacked = false
+            }
+            if (justAttacked && attackHeld) {
+                // keep tracking while holding; do not release yet
+            }
+            if (!attackHeld && !isHunting) {
+                justAttacked = false
+            }
         })
 
-        ClientTickEvents.END_CLIENT_TICK.register(ClientTickEvents.EndTick { client: Minecraft ->
+        ClientTickEvents.END_CLIENT_TICK.register(ClientTickEvents.EndTick { client: MinecraftClient ->
             val player = client.player ?: return@EndTick
-            val gameMode = client.gameMode ?: return@EndTick
+            val gameMode = client.interactionManager ?: return@EndTick
 
             if (!MidnightAssistConfig.data.globalEnabled) return@EndTick
-            val handProfile = MidnightAssistConfig.findWeaponProfile(player.mainHandItem)
+            val handProfile = MidnightAssistConfig.findWeaponProfile(player.getMainHandStack())
             if (handProfile != null && !handProfile.enabled) return@EndTick
             if (isHunting || lockedTargetId != -1 || meleeLockOnTargetId != -1) return@EndTick
 
             val realPressed = isAttackPressed(client)
             if (!realPressed) return@EndTick
 
-            val hitEntity = client.crosshairPickEntity
+            val hitEntity = client.targetedEntity
             if (hitEntity != null) {
-                if (hitEntity.isAlive && hitEntity !is Player) {
-                    val cooldown = player.getAttackStrengthScale(0.0f)
-                    if (cooldown >= 1.0f && !gameMode.isDestroying()) {
-                        gameMode.attack(player, hitEntity)
-                        player.swing(InteractionHand.MAIN_HAND, true)
+                if (hitEntity.isAlive && hitEntity !is PlayerEntity) {
+                    val cooldown = player.getAttackCooldownProgress(0.0f)
+                    if (cooldown >= 1.0f && !gameMode.isBreakingBlock()) {
+                        gameMode.attackEntity(player, hitEntity)
+                        player.swingHand(Hand.MAIN_HAND)
                     }
                 }
             }
@@ -402,8 +428,8 @@ object MidnightAssistClient : ClientModInitializer {
     // Keybinds
     // ------------------------------------------------------------------
 
-    private fun handleKeybinds(client: Minecraft) {
-        while (keyToggle.consumeClick()) {
+    private fun handleKeybinds(client: MinecraftClient) {
+        while (keyToggle.wasPressed()) {
             val enabled = !MidnightAssistConfig.data.globalEnabled
             MidnightAssistConfig.data.globalEnabled = enabled
             MidnightAssistConfig.save()
@@ -411,38 +437,38 @@ object MidnightAssistClient : ClientModInitializer {
                 resetAssistState()
             }
             client.player?.sendOverlayMessage(
-                TranslatableComponent(if (enabled) "chat.midnight-assist.enabled" else "chat.midnight-assist.disabled")
+                TranslatableText(if (enabled) "chat.midnight-assist.enabled" else "chat.midnight-assist.disabled")
             )
         }
-        while (keyLock.consumeClick()) {
+        while (keyLock.wasPressed()) {
             toggleTargetLock(client)
         }
-        while (keySettings.consumeClick()) {
-            if (client.screen == null) {
-                client.setScreen(MidnightAssistModMenu.createConfigScreen(null))
+        while (keySettings.wasPressed()) {
+            if (client.currentScreen == null) {
+                // client.openScreen(MidnightAssistModMenu.createConfigScreen(null))
             }
         }
-        while (keyEntityList.consumeClick()) {
-            if (client.screen == null) {
-                client.setScreen(EntityListScreen(null))
+        while (keyEntityList.wasPressed()) {
+            if (client.currentScreen == null) {
+                // client.openScreen(EntityListScreen(null))
             }
         }
     }
 
-    private fun toggleTargetLock(client: Minecraft) {
+    private fun toggleTargetLock(client: MinecraftClient) {
         val player = client.player ?: return
         if (assistTargetId != -1) {
             assistLocked = !assistLocked
             player.sendOverlayMessage(
-                TranslatableComponent(if (assistLocked) "chat.midnight-assist.locked" else "chat.midnight-assist.unlocked")
+                TranslatableText(if (assistLocked) "chat.midnight-assist.locked" else "chat.midnight-assist.unlocked")
             )
             return
         }
-        val hit = client.crosshairPickEntity
+        val hit = client.targetedEntity
         if (hit != null && hit.isAlive && MidnightAssistConfig.isEntityEnabled(hit)) {
             acquireTarget(player, hit)
             assistLocked = true
-            player.sendOverlayMessage(TranslatableComponent("chat.midnight-assist.locked"))
+            player.sendOverlayMessage(TranslatableText("chat.midnight-assist.locked"))
         }
     }
 
@@ -450,21 +476,21 @@ object MidnightAssistClient : ClientModInitializer {
     // Aim assist
     // ------------------------------------------------------------------
 
-    private fun assistTick(client: Minecraft) {
+    private fun assistTick(client: MinecraftClient) {
         val player = client.player ?: return
-        val level = client.level ?: return
+        val level = client.world ?: return
 
         if (!MidnightAssistConfig.data.globalEnabled) {
             return
         }
-        if (client.screen != null || player.isSpectator) {
+        if (client.currentScreen != null || player.isSpectator) {
             if (assistTargetId != -1) {
                 cancelTracking()
             }
             return
         }
 
-        val handProfile = MidnightAssistConfig.findWeaponProfile(player.mainHandItem)
+        val handProfile = MidnightAssistConfig.findWeaponProfile(player.getMainHandStack())
         if (handProfile != null && !handProfile.enabled) {
             if (assistTargetId != -1) {
                 cancelTracking()
@@ -482,14 +508,15 @@ object MidnightAssistClient : ClientModInitializer {
 
         val mode = currentItemMode(player)
 
-        var target = if (assistTargetId != -1) level.getEntity(assistTargetId) else null
+        var target = if (assistTargetId != -1) level.getEntityById(assistTargetId) else null
 
-        if (target != null && (!target.isAlive || target.isRemoved || target.level !== level)) {
+        if (target != null && (!target.isAlive || target.removed || target.world !== level)) {
             onTargetKilled(player)
             target = null
         }
 
-        if (target != null && !isStillValidTarget(player, target)) {
+        val t = target
+        if (t != null && !isStillValidTarget(player, t)) {
             releaseTarget(manual = false)
             target = null
         }
@@ -516,25 +543,26 @@ object MidnightAssistClient : ClientModInitializer {
             }
         }
 
-        target = if (assistTargetId != -1) level.getEntity(assistTargetId) else null
+        target = if (assistTargetId != -1) level.getEntityById(assistTargetId) else null
 
-        if (target != null) {
-            val point = aimPoint(player, target)
+        val curTarget = target
+        if (curTarget != null) {
+            val point = aimPoint(player, curTarget)
             if (!assistLocked && angleTo(player, point) > releaseAngle()) {
                 releaseTarget(manual = true)
             }
         }
     }
 
-    private fun acquireTarget(player: Player, target: Entity) {
-        assistTargetId = target.id
+    private fun acquireTarget(player: PlayerEntity, target: Entity) {
+        assistTargetId = target.entityId
         assistManualRelease = false
         nextSearchTicks = -1
-        lastAppliedYaw = player.yRot
-        lastAppliedPitch = player.xRot
+        lastAppliedYaw = player.yaw
+        lastAppliedPitch = player.pitch
     }
 
-    private fun onTargetKilled(player: Player) {
+    private fun onTargetKilled(player: PlayerEntity) {
         assistTargetId = -1
         if (!assistManualRelease) {
             nextSearchTicks = NEXT_SEARCH_DELAY
@@ -571,11 +599,11 @@ object MidnightAssistClient : ClientModInitializer {
         nextSearchTicks = -1
     }
 
-    private fun angleTo(player: Player, point: Vec3): Double {
-        val eye = player.getEyePosition(1.0f)
+    private fun angleTo(player: PlayerEntity, point: Vec3d): Double {
+        val eye = player.getCameraPosVec(1.0f)
         val dir = point.subtract(eye)
-        if (dir.lengthSqr() < 1.0E-6) return 0.0
-        val dot = player.lookAngle.dot(dir.normalize()).coerceIn(-1.0, 1.0)
+        if (dir.lengthSquared() < 1.0E-6) return 0.0
+        val dot = player.getRotationVec(1.0f).dotProduct(dir.normalize()).coerceIn(-1.0, 1.0)
         return Math.toDegrees(acos(dot))
     }
 
@@ -588,8 +616,8 @@ object MidnightAssistClient : ClientModInitializer {
     private fun assistRange(): Double = 4.5
 
     private fun activeProfile(): WeaponProfile? {
-        val player = Minecraft.getInstance().player ?: return null
-        return MidnightAssistConfig.findWeaponProfile(player.mainHandItem)
+        val player = MinecraftClient.getInstance().player ?: return null
+        return MidnightAssistConfig.findWeaponProfile(player.getMainHandStack())
     }
 
     private fun effAimSpeed(): Double =
@@ -625,17 +653,17 @@ object MidnightAssistClient : ClientModInitializer {
     private fun effMeleeRetarget(): MeleeRetarget =
         activeProfile()?.meleeRetarget ?: MidnightAssistConfig.data.meleeRetarget
 
-    private fun canActivateMeleeLock(player: LocalPlayer): Boolean {
+    private fun canActivateMeleeLock(player: ClientPlayerEntity): Boolean {
         if (player.isUsingItem) return false
-        val stack = player.mainHandItem
+        val stack = player.getMainHandStack()
         if (stack.isEmpty) return true
         if (stack.item is BlockItem) return false
-        val id = Registry.ITEM.getKey(stack.item).path
+        val id = Registry.ITEM.getId(stack.item).path
         if (id == "bow" || id == "crossbow") return false
         return true
     }
 
-    private fun acquireMeleeLock(client: Minecraft, player: LocalPlayer) {
+    private fun acquireMeleeLock(client: MinecraftClient, player: ClientPlayerEntity) {
         if (!canActivateMeleeLock(player)) {
             return
         }
@@ -643,14 +671,14 @@ object MidnightAssistClient : ClientModInitializer {
         if (lockOnTarget == null) {
             return
         }
-        meleeLockOnTargetId = lockOnTarget.id
+        meleeLockOnTargetId = lockOnTarget.entityId
         meleeTargetType = lockOnTarget.type
         meleeLockSuppressed = false
-        logger.info("Melee lock-on target: {} (id={})", lockOnTarget.name.string, lockOnTarget.id)
+        log("Melee lock-on target: {} (id={})", lockOnTarget.name.string, lockOnTarget.entityId)
     }
 
-    private fun handleMeleeTargetGone(client: Minecraft, player: LocalPlayer) {
-        logger.info("Melee lock-on target lost")
+    private fun handleMeleeTargetGone(client: MinecraftClient, player: ClientPlayerEntity) {
+        log("Melee lock-on target lost")
         if (effMeleeRetarget() != MeleeRetarget.STOP_AFTER_DEATH && retargetMelee(client, player)) return
         releaseMeleeLock()
         if (effMeleeLockMode() == MeleeLockMode.HOLD) {
@@ -658,32 +686,32 @@ object MidnightAssistClient : ClientModInitializer {
         }
     }
 
-    private fun retargetMelee(client: Minecraft, player: LocalPlayer): Boolean {
+    private fun retargetMelee(client: MinecraftClient, player: ClientPlayerEntity): Boolean {
         val next = when (effMeleeRetarget()) {
             MeleeRetarget.SWITCH_SAME_SPECIES -> meleeTargetType?.let { findSameSpeciesTarget(client, player, it, 5.0) }
             MeleeRetarget.SWITCH_PRIORITIZED -> findTarget(client, 5.0, ignoreFov = true)
             else -> null
         } ?: return false
         if (!next.isAlive) return false
-        meleeLockOnTargetId = next.id
+        meleeLockOnTargetId = next.entityId
         meleeTargetType = next.type
         lockOnCamera = null
         lastLockTargetId = -1
         camInitialized = false
-        logger.info("Melee lock-on switched to: {} (id={})", next.name.string, next.id)
+        log("Melee lock-on switched to: {} (id={})", next.name.string, next.entityId)
         return true
     }
 
-    private fun findSameSpeciesTarget(client: Minecraft, player: LocalPlayer, type: EntityType<*>, range: Double): Entity? {
-        val level = client.level ?: return null
+    private fun findSameSpeciesTarget(client: MinecraftClient, player: ClientPlayerEntity, type: EntityType<*>, range: Double): Entity? {
+        val level = client.world ?: return null
         var best: Entity? = null
         var bestDistance = Double.MAX_VALUE
-        for (entity in level.getEntities(player, player.boundingBox.inflate(range))) {
+        for (entity in level.getEntities(player, player.getBoundingBox().expand(range), { true })) {
             if (entity === player || !entity.isAlive || entity.type !== type) continue
             if (!MidnightAssistConfig.isEntityEnabled(entity)) continue
             val distance = entity.distanceTo(player).toDouble()
             if (distance > range || distance >= bestDistance) continue
-            if (!player.hasLineOfSight(entity)) continue
+            if (!player.canSee(entity)) continue
             best = entity
             bestDistance = distance
         }
@@ -702,24 +730,24 @@ object MidnightAssistClient : ClientModInitializer {
         camInitialized = false
     }
 
-    private fun isStillValidTarget(player: Player, target: Entity): Boolean {
+    private fun isStillValidTarget(player: PlayerEntity, target: Entity): Boolean {
         val range = assistRange()
         if (player.distanceTo(target) > range * 1.6) return false
         if (assistLocked) {
             return player.distanceTo(target) <= range * 2.5
         }
-        return player.hasLineOfSight(target)
+        return player.canSee(target)
     }
 
-    private fun currentItemMode(player: Player): ItemMode {
+    private fun currentItemMode(player: PlayerEntity): ItemMode {
         if (player.isSpectator) return ItemMode.NONE
-        val stack = player.mainHandItem
+        val stack = player.getMainHandStack()
         val profile = MidnightAssistConfig.findWeaponProfile(stack)
         if (stack.isEmpty) {
             return if (profile != null && profile.enabled) ItemMode.EMPTY else ItemMode.NONE
         }
         if (profile != null && !profile.enabled) return ItemMode.NONE
-        val id = Registry.ITEM.getKey(stack.item).path
+        val id = Registry.ITEM.getId(stack.item).path
         return when {
             isMeleeId(id) -> ItemMode.MELEE
             profile != null -> ItemMode.OTHER
@@ -732,30 +760,30 @@ object MidnightAssistClient : ClientModInitializer {
             id.contains("mace") || id.contains("spear")
     }
 
-    private fun aimPoint(player: Player, target: Entity): Vec3 {
-        val bb = target.boundingBox
+    private fun aimPoint(player: PlayerEntity, target: Entity): Vec3d {
+        val bb = target.getBoundingBox()
         val center = bb.center
-        val height = bb.maxY - bb.minY
-        val head = Vec3(center.x, target.eyeY - 0.1, center.z)
-        val torso = Vec3(center.x, bb.minY + height * 0.62, center.z)
-        val legs = Vec3(center.x, bb.minY + height * 0.22, center.z)
+        val height = bb.y2 - bb.y1
+        val head = Vec3d(center.x, target.eyeY - 0.1, center.z)
+        val torso = Vec3d(center.x, bb.y1 + height * 0.62, center.z)
+        val legs = Vec3d(center.x, bb.y1 + height * 0.22, center.z)
         return when (effAimPoint()) {
             AimPoint.CENTER -> center
-            AimPoint.UPPER_BODY -> Vec3(center.x, bb.minY + height * 0.8, center.z)
+            AimPoint.UPPER_BODY -> Vec3d(center.x, bb.y1 + height * 0.8, center.z)
             AimPoint.HEAD -> head
             AimPoint.DYNAMIC -> nearestBodyPart(player, head, torso, legs)
         }
     }
 
-    private fun nearestBodyPart(player: Player, vararg parts: Vec3): Vec3 {
-        val eye = player.getEyePosition(1.0f)
-        val look = player.lookAngle
+    private fun nearestBodyPart(player: PlayerEntity, vararg parts: Vec3d): Vec3d {
+        val eye = player.getCameraPosVec(1.0f)
+        val look = player.getRotationVec(1.0f)
         var best = parts[0]
         var bestAngle = Double.MAX_VALUE
         for (part in parts) {
             val dir = part.subtract(eye)
-            if (dir.lengthSqr() < 1.0E-6) return part
-            val angle = acos(look.dot(dir.normalize()).coerceIn(-1.0, 1.0))
+            if (dir.lengthSquared() < 1.0E-6) return part
+            val angle = acos(look.dotProduct(dir.normalize()).coerceIn(-1.0, 1.0))
             if (angle < bestAngle) {
                 bestAngle = angle
                 best = part
@@ -764,10 +792,10 @@ object MidnightAssistClient : ClientModInitializer {
         return best
     }
 
-    private fun findAssistTarget(client: Minecraft, player: Player, coneAngle: Double): Entity? {
-        val level = client.level ?: return null
+    private fun findAssistTarget(client: MinecraftClient, player: PlayerEntity, coneAngle: Double): Entity? {
+        val level = client.world ?: return null
         val range = assistRange()
-        val entities = level.getEntities(player, player.boundingBox.inflate(range))
+        val entities = level.getEntities(player, player.getBoundingBox().expand(range), { true })
         val halfCone = coneAngle / 2.0
 
         var best: Entity? = null
@@ -778,14 +806,14 @@ object MidnightAssistClient : ClientModInitializer {
             if (!MidnightAssistConfig.isEntityEnabled(entity)) continue
             val dist = player.distanceTo(entity).toDouble()
             if (dist > range) continue
-            if (!player.hasLineOfSight(entity)) continue
+            if (!player.canSee(entity)) continue
 
             if (coneAngle < 360.0) {
-                val angle = angleTo(player, entity.boundingBox.center)
+                val angle = angleTo(player, entity.getBoundingBox().getCenter())
                 if (angle > halfCone) continue
             }
 
-            val angle = angleTo(player, entity.boundingBox.center)
+            val angle = angleTo(player, entity.getBoundingBox().getCenter())
             val score = scoreTarget(player, entity, angle, dist)
             if (score < bestScore) {
                 bestScore = score
@@ -795,7 +823,7 @@ object MidnightAssistClient : ClientModInitializer {
         return best
     }
 
-    private fun scoreTarget(player: Player, entity: Entity, angle: Double, dist: Double): Double {
+    private fun scoreTarget(player: PlayerEntity, entity: Entity, angle: Double, dist: Double): Double {
         val health = (entity as? LivingEntity)?.health?.toDouble() ?: 20.0
         val threat = threatLevel(player, entity)
         val now = System.currentTimeMillis()
@@ -809,19 +837,19 @@ object MidnightAssistClient : ClientModInitializer {
             TargetPriority.FARTHEST -> -dist
             TargetPriority.WEAKEST -> health + dist * 0.01
             TargetPriority.STRONGEST -> -(health) + dist * 0.01
-            TargetPriority.LOOKING_AT_YOU -> if (entity is Mob && entity.target === player) dist * 0.5 else dist * 2.0
+            TargetPriority.LOOKING_AT_YOU -> if (entity is MobEntity && entity.target === player) dist * 0.5 else dist * 2.0
             TargetPriority.RECENTLY_ATTACKED -> {
-                val lastAttack = recentlyAttacked[entity.id]
+                val lastAttack = recentlyAttacked[entity.entityId]
                 if (lastAttack != null && now - lastAttack < RECENTLY_ATTACKED_TIMEOUT) dist * 0.3 else dist * 2.0
             }
         }
         return if (MidnightAssistConfig.isPriorityEntity(entity)) base * 0.5 else base
     }
 
-    private fun threatLevel(player: Player, entity: Entity): Double {
-        if (entity is Mob) {
+    private fun threatLevel(player: PlayerEntity, entity: Entity): Double {
+        if (entity is MobEntity) {
             if (entity.target === player) return 1.0
-            return if (entity.type.category === net.minecraft.world.entity.MobCategory.MONSTER) 0.6 else 0.2
+            return if (entity.type.category === net.minecraft.entity.EntityCategory.MONSTER) 0.6 else 0.2
         }
         return 0.1
     }
@@ -830,39 +858,39 @@ object MidnightAssistClient : ClientModInitializer {
     // Existing helpers
     // ------------------------------------------------------------------
 
-    private fun isUsePressed(client: Minecraft): Boolean {
-        if (client.screen != null) return false
-        return client.options.keyUse.isDown
+    private fun isUsePressed(client: MinecraftClient): Boolean {
+        if (client.currentScreen != null) return false
+        return client.options.keyUse.isPressed
     }
 
-    private fun isAttackPressed(client: Minecraft): Boolean {
-        return client.options.keyAttack.isDown
+    private fun isAttackPressed(client: MinecraftClient): Boolean {
+        return client.options.keyAttack.isPressed
     }
 
-    private fun isTargetUnderCrosshair(client: Minecraft, target: Entity): Boolean {
+    private fun isTargetUnderCrosshair(client: MinecraftClient, target: Entity): Boolean {
         val player = client.player ?: return false
         val reach = 5.0
-        val cameraPos = player.getEyePosition(1.0f)
-        val rotation = player.lookAngle
+        val cameraPos = player.getCameraPosVec(1.0f)
+        val rotation = player.getRotationVec(1.0f)
         val endPos = cameraPos.add(rotation.x * reach, rotation.y * reach, rotation.z * reach)
-        val box = target.boundingBox.inflate(target.pickRadius.toDouble() + 0.1)
-        val hit = box.clip(cameraPos, endPos)
+        val box = target.getBoundingBox().expand(0.1)
+        val hit = box.rayTrace(cameraPos, endPos)
         return hit.isPresent
     }
 
-    private fun isCameraAligned(player: Player, target: Entity): Boolean {
-        val playerPos = player.getEyePosition(1.0f)
+    private fun isCameraAligned(player: PlayerEntity, target: Entity): Boolean {
+        val playerPos = player.getCameraPosVec(1.0f)
         val targetPos = aimPoint(player, target)
         val dirToTarget = targetPos.subtract(playerPos).normalize()
-        val playerRotation = player.lookAngle
-        val dot = playerRotation.dot(dirToTarget)
+        val playerRotation = player.getRotationVec(1.0f)
+        val dot = playerRotation.dotProduct(dirToTarget)
         return dot > 0.98
     }
 
-    private fun findTarget(client: Minecraft, range: Double, ignoreFov: Boolean = false, coneAngle: Double = -1.0): Entity? {
+    private fun findTarget(client: MinecraftClient, range: Double, ignoreFov: Boolean = false, coneAngle: Double = -1.0): Entity? {
         val player = client.player ?: return null
-        val level = client.level ?: return null
-        val entities = level.getEntities(player, player.boundingBox.inflate(range))
+        val level = client.world ?: return null
+        val entities = level.getEntities(player, player.getBoundingBox().expand(range), { true })
 
         val priority = effTargetPriority()
         val fov = if (coneAngle >= 0.0) coneAngle else effAimAssistDistance().toDouble()
@@ -872,12 +900,12 @@ object MidnightAssistClient : ClientModInitializer {
         var bestScore = Double.MAX_VALUE
 
         for (entity in entities) {
-            if (entity is Player || !entity.isAlive) continue
+            if (entity is PlayerEntity || !entity.isAlive) continue
             if (!MidnightAssistConfig.isEntityEnabled(entity)) continue
             val dist = entity.distanceTo(player).toDouble()
             if (dist > range) continue
-            if (!player.hasLineOfSight(entity)) continue
-            if (!ignoreFov && fov < 360.0 && angleTo(player, entity.boundingBox.center) > fov / 2.0) continue
+            if (!player.canSee(entity)) continue
+            if (!ignoreFov && fov < 360.0 && angleTo(player, entity.getBoundingBox().getCenter()) > fov / 2.0) continue
 
             val score = when (priority) {
                 TargetPriority.NEAREST, TargetPriority.CROSSHAIR -> dist
@@ -889,11 +917,11 @@ object MidnightAssistClient : ClientModInitializer {
                     if (entity is LivingEntity) -(entity.health.toDouble()) + dist * 0.01 else -dist
                 }
                 TargetPriority.LOOKING_AT_YOU, TargetPriority.THREAT -> {
-                    val isLooking = if (entity is Mob) entity.target == player else false
+                    val isLooking = if (entity is MobEntity) entity.target == player else false
                     if (isLooking) dist * 0.5 else dist * 2.0
                 }
                 TargetPriority.RECENTLY_ATTACKED -> {
-                    val lastAttack = recentlyAttacked[entity.id]
+                    val lastAttack = recentlyAttacked[entity.entityId]
                     if (lastAttack != null) {
                         val elapsed = now - lastAttack
                         if (elapsed < RECENTLY_ATTACKED_TIMEOUT) dist * 0.3 else dist * 2.0
@@ -909,22 +937,22 @@ object MidnightAssistClient : ClientModInitializer {
         return bestTarget
     }
 
-    private fun lockedCameraSoft(player: Player, target: Entity) {
-        val playerPos = Vec3f(player.x.toFloat(), player.eyeY.toFloat(), player.z.toFloat())
+    private fun lockedCameraSoft(player: PlayerEntity, target: Entity) {
+        val playerPos = Vec3df(player.x.toFloat(), player.eyeY.toFloat(), player.z.toFloat())
         val aim = aimPoint(player, target)
-        val targetPos = Vec3f(aim.x.toFloat(), aim.y.toFloat(), aim.z.toFloat())
-        val vel = target.deltaMovement
-        val targetVel = Vec3f(vel.x.toFloat() * 20f, vel.y.toFloat() * 20f, vel.z.toFloat() * 20f)
+        val targetPos = Vec3df(aim.x.toFloat(), aim.y.toFloat(), aim.z.toFloat())
+        val vel = target.velocity
+        val targetVel = Vec3df(vel.x.toFloat() * 20f, vel.y.toFloat() * 20f, vel.z.toFloat() * 20f)
         val aimSpeed = effAimSpeed().toFloat()
-        if (lockOnCamera == null || target.id != lastLockTargetId || !camInitialized) {
+        if (lockOnCamera == null || target.entityId != lastLockTargetId || !camInitialized) {
             val predicted = LockOnCamera.predictTarget(targetPos, targetVel)
-            lockOnCamera = LockOnCamera(predicted, player.yRot, player.xRot, aimSpeed)
-            lastLockTargetId = target.id
+            lockOnCamera = LockOnCamera(predicted, player.yaw, player.pitch, aimSpeed)
+            lastLockTargetId = target.entityId
             if (!camInitialized) {
-                prevCamYaw = player.yRot
-                prevCamPitch = player.xRot
-                curCamYaw = player.yRot
-                curCamPitch = player.xRot
+                prevCamYaw = player.yaw
+                prevCamPitch = player.pitch
+                curCamYaw = player.yaw
+                curCamPitch = player.pitch
                 camInitialized = true
             }
         }
@@ -936,13 +964,13 @@ object MidnightAssistClient : ClientModInitializer {
         curCamPitch = cam.pitch
     }
 
-    private fun updateBlockAimAssist(client: Minecraft, player: Player, level: net.minecraft.client.multiplayer.ClientLevel) {
+    private fun updateBlockAimAssist(client: MinecraftClient, player: PlayerEntity, level: net.minecraft.client.world.ClientWorld) {
         val range = MidnightAssistConfig.data.blockAimAssistRange
-        val hitResult = client.hitResult
+        val hitResult = client.crosshairTarget
 
         if (hitResult is BlockHitResult) {
             val blockPos = hitResult.blockPos
-            val targetVec = Vec3(blockPos.getX() + 0.5, blockPos.getY() + 0.5, blockPos.getZ() + 0.5)
+            val targetVec = Vec3d(blockPos.getX() + 0.5, blockPos.getY() + 0.5, blockPos.getZ() + 0.5)
             val dx = player.x - targetVec.x
             val dy = player.y - targetVec.y
             val dz = player.z - targetVec.z
@@ -951,25 +979,25 @@ object MidnightAssistClient : ClientModInitializer {
             if (dist <= range) {
                 if (!blockAimAssistInitialized || lastTargetedBlockPos != blockPos) {
                     if (!blockAimAssistInitialized) {
-                        prevBlockCamYaw = player.yRot
-                        prevBlockCamPitch = player.xRot
-                        curBlockCamYaw = player.yRot
-                        curBlockCamPitch = player.xRot
+                        prevBlockCamYaw = player.yaw
+                        prevBlockCamPitch = player.pitch
+                        curBlockCamYaw = player.yaw
+                        curBlockCamPitch = player.pitch
                         blockAimAssistInitialized = true
                     }
                     lastTargetedBlockPos = blockPos
 
                     if (blockSpring == null || lastTargetedBlockPos != blockPos || !blockAimAssistInitialized) {
-                        val targetVec3f = Vec3f(targetVec.x.toFloat(), targetVec.y.toFloat(), targetVec.z.toFloat())
-                        blockSpring = CameraSpring(targetVec3f, MidnightAssistConfig.effectiveAimSpeed().toFloat())
+                        val targetVec3df = Vec3df(targetVec.x.toFloat(), targetVec.y.toFloat(), targetVec.z.toFloat())
+                        blockSpring = CameraSpring(targetVec3df, MidnightAssistConfig.effectiveAimSpeed().toFloat())
                         lastTargetedBlockPos = blockPos
                     }
 
-                    val playerPos = Vec3f(player.x.toFloat(), player.eyeY.toFloat(), player.z.toFloat())
-                    val targetVec3f = Vec3f(targetVec.x.toFloat(), targetVec.y.toFloat(), targetVec.z.toFloat())
+                    val playerPos = Vec3df(player.x.toFloat(), player.eyeY.toFloat(), player.z.toFloat())
+                    val targetVec3df = Vec3df(targetVec.x.toFloat(), targetVec.y.toFloat(), targetVec.z.toFloat())
                     val spring = blockSpring ?: return
 
-                    spring.update(targetVec3f, 0.05f)
+                    spring.update(targetVec3df, 0.05f)
 
                     val dir = spring.position.sub(playerPos)
                     val targetYaw = Math.toDegrees(Math.atan2(dir.z.toDouble(), dir.x.toDouble())).toFloat() - 90f
@@ -1001,10 +1029,10 @@ object MidnightAssistClient : ClientModInitializer {
     }
 
     @JvmStatic
-    fun onUseKeyClick(key: InputConstants.Key) {
-        val client = Minecraft.getInstance() ?: return
-        if (client.screen != null) return
-        if (client.options.keyUse.saveString() != key.name) return
+    fun onUseKeyClick(key: InputUtil.KeyCode) {
+        val client = MinecraftClient.getInstance() ?: return
+        if (client.currentScreen != null) return
+        if (client.options.keyUse.getId() != key.getName()) return
         pendingMeleeLockClicks++
     }
 
@@ -1025,38 +1053,39 @@ object MidnightAssistClient : ClientModInitializer {
         blockAimAssistInitialized = false
         lastTargetedBlockPos = null
         blockSpring = null
+        justAttacked = false
     }
 
     @JvmStatic
-    fun tryInterceptAttack(client: Minecraft): Boolean {
+    fun tryInterceptAttack(client: MinecraftClient): Boolean {
         if (!MidnightAssistConfig.data.globalEnabled) return false
         val player = client.player ?: return false
-        val level = client.level ?: return false
-        val handProfile = MidnightAssistConfig.findWeaponProfile(player.mainHandItem)
+        val level = client.world ?: return false
+        val handProfile = MidnightAssistConfig.findWeaponProfile(player.getMainHandStack())
         if (handProfile != null && !handProfile.enabled) return false
         if (meleeLockOnTargetId != -1) {
-            val target = level.getEntity(meleeLockOnTargetId)
+            val target = level.getEntityById(meleeLockOnTargetId)
             if (target != null && target.isAlive) {
-                if (lockedTargetId != target.id || !isHunting) {
-                    lockedTargetId = target.id
+                if (lockedTargetId != target.entityId || !isHunting) {
+                    lockedTargetId = target.entityId
                     isHunting = true
                     attackStartTime = System.currentTimeMillis()
                     ticksSinceTargetAcquired = 0
-                    logger.info("Attack during melee lock-on: {} (id={})", target.name.string, target.id)
+                    log("Attack during melee lock-on: {} (id={})", target.name.string, target.entityId)
                 }
                 pendingAttack = true
                 return true
             }
         }
         if (isHunting) return true
-        if (client.crosshairPickEntity != null) return false
+        if (client.targetedEntity != null) return false
         val target = findTarget(client, 5.0, coneAngle = effAimAssistDistance().toDouble()) ?: return false
-        lockedTargetId = target.id
+        lockedTargetId = target.entityId
         isHunting = true
         pendingAttack = true
         attackStartTime = System.currentTimeMillis()
         ticksSinceTargetAcquired = 0
-        logger.info("Intercepted attack, hunting: {} (id={})", target.name.string, target.id)
+        log("Intercepted attack, hunting: {} (id={})", target.name.string, target.entityId)
         return true
     }
 
@@ -1068,60 +1097,60 @@ object MidnightAssistClient : ClientModInitializer {
 
     @JvmStatic
     fun shouldCancelItemUse(): Boolean {
-        val instance = Minecraft.getInstance()
+        val instance = MinecraftClient.getInstance()
         val player = instance.player ?: return false
-        if (instance.screen != null) return false
-        val mainHand = player.mainHandItem
-        val offHand = player.offhandItem
-        if (mainHand.`is`(Items.SHIELD) || offHand.`is`(Items.SHIELD)) return false
+        if (instance.currentScreen != null) return false
+        val mainHand = player.getMainHandStack()
+        val offHand = player.getOffHandStack()
+        if (mainHand.item === Items.SHIELD || offHand.item === Items.SHIELD) return false
         if (!effMeleeLockOnBlockUse()) return false
-        return instance.options.keyUse.isDown && meleeLockOnTargetId != -1 && effMeleeLockOnEnabled() && MidnightAssistConfig.data.globalEnabled
+        return instance.options.keyUse.isPressed && meleeLockOnTargetId != -1 && effMeleeLockOnEnabled() && MidnightAssistConfig.data.globalEnabled
     }
 
     @JvmStatic
     fun applyPartialTicks(partialTicks: Float) {
-        val player = Minecraft.getInstance().player ?: return
+        val player = MinecraftClient.getInstance().player ?: return
         if (!MidnightAssistConfig.data.globalEnabled) return
 
         // Entity aim assist has priority
         if (camInitialized) {
-            val yawDiff = Mth.wrapDegrees(curCamYaw - prevCamYaw)
+            val yawDiff = MathHelper.wrapDegrees(curCamYaw - prevCamYaw)
             val yaw = prevCamYaw + yawDiff * partialTicks
             val pitch = prevCamPitch + (curCamPitch - prevCamPitch) * partialTicks
-            player.setYRot(yaw)
-            player.setXRot(pitch)
-            player.yRotO = yaw
-            player.xRotO = pitch
+            player.yaw = yaw
+            player.pitch = pitch
+            player.prevYaw = yaw
+            player.prevPitch = pitch
             lastAppliedYaw = yaw
             lastAppliedPitch = pitch
         }
         // Block aim assist (only when not using entity aim assist)
         else if (blockAimAssistInitialized) {
-            val yawDiff = Mth.wrapDegrees(curBlockCamYaw - prevBlockCamYaw)
+            val yawDiff = MathHelper.wrapDegrees(curBlockCamYaw - prevBlockCamYaw)
             val yaw = prevBlockCamYaw + yawDiff * partialTicks
             val pitch = prevBlockCamPitch + (curBlockCamPitch - prevBlockCamPitch) * partialTicks
-            player.setYRot(yaw)
-            player.setXRot(pitch)
-            player.yRotO = yaw
-            player.xRotO = pitch
+            player.yaw = yaw
+            player.pitch = pitch
+            player.prevYaw = yaw
+            player.prevPitch = pitch
         }
     }
 }
 
-private data class Vec3f(val x: Float = 0f, val y: Float = 0f, val z: Float = 0f) {
-    fun add(o: Vec3f) = Vec3f(x + o.x, y + o.y, z + o.z)
-    fun sub(o: Vec3f) = Vec3f(x - o.x, y - o.y, z - o.z)
-    fun mul(s: Float) = Vec3f(x * s, y * s, z * s)
+private data class Vec3df(val x: Float = 0f, val y: Float = 0f, val z: Float = 0f) {
+    fun add(o: Vec3df) = Vec3df(x + o.x, y + o.y, z + o.z)
+    fun sub(o: Vec3df) = Vec3df(x - o.x, y - o.y, z - o.z)
+    fun mul(s: Float) = Vec3df(x * s, y * s, z * s)
 }
 
-private class CameraSpring(start: Vec3f, aimSpeed: Float = 0.5f) {
+private class CameraSpring(start: Vec3df, aimSpeed: Float = 0.5f) {
     var position = start
         private set
-    private var velocity = Vec3f()
+    private var velocity = Vec3df()
     private val stiffness = aimSpeed * 120f + 1f
     private val damping = 2f * sqrt(stiffness) * 1.0f
 
-    fun update(target: Vec3f, dt: Float) {
+    fun update(target: Vec3df, dt: Float) {
         val toTarget = target.sub(position)
         val accel = toTarget.mul(stiffness).sub(velocity.mul(damping))
         velocity = velocity.add(accel.mul(dt))
@@ -1129,7 +1158,7 @@ private class CameraSpring(start: Vec3f, aimSpeed: Float = 0.5f) {
     }
 }
 
-private class LockOnCamera(start: Vec3f, startYaw: Float = 0f, startPitch: Float = 0f, aimSpeed: Float = 0.5f) {
+private class LockOnCamera(start: Vec3df, startYaw: Float = 0f, startPitch: Float = 0f, aimSpeed: Float = 0.5f) {
     private val camera = CameraSpring(start, aimSpeed)
     var yaw = startYaw
         private set
@@ -1138,11 +1167,11 @@ private class LockOnCamera(start: Vec3f, startYaw: Float = 0f, startPitch: Float
     private val rotSpeed = (aimSpeed * 40f).coerceAtLeast(0.01f)
 
     fun nudge(deltaYaw: Float, deltaPitch: Float) {
-        yaw = Mth.wrapDegrees(yaw + deltaYaw)
+        yaw = MathHelper.wrapDegrees(yaw + deltaYaw)
         pitch = (pitch + deltaPitch).coerceIn(-90f, 90f)
     }
 
-    fun update(playerPos: Vec3f, targetPos: Vec3f, targetVel: Vec3f, dt: Float) {
+    fun update(playerPos: Vec3df, targetPos: Vec3df, targetVel: Vec3df, dt: Float) {
         val predicted = predictTarget(targetPos, targetVel)
         camera.update(predicted, dt)
         val dir = camera.position.sub(playerPos)
@@ -1156,7 +1185,7 @@ private class LockOnCamera(start: Vec3f, startYaw: Float = 0f, startPitch: Float
 
     companion object {
         private const val predictionTime = 0.08f
-        fun predictTarget(targetPos: Vec3f, targetVel: Vec3f) = targetPos.add(targetVel.mul(predictionTime))
+        fun predictTarget(targetPos: Vec3df, targetVel: Vec3df) = targetPos.add(targetVel.mul(predictionTime))
     }
 
     private fun dampAngle(current: Float, target: Float, dt: Float): Float {
@@ -1167,6 +1196,6 @@ private class LockOnCamera(start: Vec3f, startYaw: Float = 0f, startPitch: Float
     }
 }
 
-internal fun LocalPlayer.sendOverlayMessage(message: Component) {
-    displayClientMessage(message, true)
+internal fun ClientPlayerEntity.sendOverlayMessage(message: Text) {
+    sendMessage(message)
 }

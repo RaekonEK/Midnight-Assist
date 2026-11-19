@@ -72,6 +72,7 @@ object MidnightAssistClient : ClientModInitializer {
     private val MELEE_LOCKON_GRACE_TICKS = 5
     private var pendingMeleeLockClicks: Int = 0
     private var meleeLockSuppressed: Boolean = false
+    private var justAttacked: Boolean = false
     private var meleeTargetType: EntityType<*>? = null
 
     // Auto aim assist state
@@ -254,6 +255,7 @@ object MidnightAssistClient : ClientModInitializer {
                 lastLockTargetId = -1
                 pendingAttack = false
                 ticksSinceTargetAcquired = 0
+                justAttacked = false
             }
 
             if (currentTarget == null && pendingAttack) {
@@ -333,6 +335,7 @@ object MidnightAssistClient : ClientModInitializer {
                         recentlyAttacked[target.id] = System.currentTimeMillis()
                         attackStartTime = System.currentTimeMillis()
                         pendingAttack = false
+                        justAttacked = true
 
                         if (!attackHeld && meleeLockOnTargetId == -1) {
                             isHunting = false
@@ -343,6 +346,7 @@ object MidnightAssistClient : ClientModInitializer {
                             pendingAttack = false
                             pendingTargetId = -1
                             ticksSinceTargetAcquired = 0
+                            justAttacked = false
                         }
                     } else if (shouldRelease && meleeLockOnTargetId == -1) {
                         logger.info("Releasing target - couldn't align camera after {} ticks", maxAlignTicks)
@@ -367,6 +371,26 @@ object MidnightAssistClient : ClientModInitializer {
                     pendingTargetId = -1
                     ticksSinceTargetAcquired = 0
                 }
+            }
+
+            // Deferred release: after a single-click attack, release the target
+            // once the attack key is no longer held (fixes "keeps tracking after hit")
+            if (justAttacked && !attackHeld && meleeLockOnTargetId == -1 && lockedTargetId != -1) {
+                isHunting = false
+                lockedTargetId = -1
+                lockOnCamera = null
+                lastLockTargetId = -1
+                camInitialized = false
+                pendingAttack = false
+                pendingTargetId = -1
+                ticksSinceTargetAcquired = 0
+                justAttacked = false
+            }
+            if (justAttacked && attackHeld) {
+                // keep tracking while holding; do not release yet
+            }
+            if (!attackHeld && !isHunting) {
+                justAttacked = false
             }
         })
 
@@ -1023,6 +1047,7 @@ object MidnightAssistClient : ClientModInitializer {
         blockAimAssistInitialized = false
         lastTargetedBlockPos = null
         blockSpring = null
+        justAttacked = false
     }
 
     @JvmStatic

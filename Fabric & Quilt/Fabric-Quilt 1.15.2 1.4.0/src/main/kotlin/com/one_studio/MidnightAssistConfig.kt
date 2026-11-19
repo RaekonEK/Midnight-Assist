@@ -3,19 +3,16 @@ package com.one_studio
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
-import me.shedaniel.autoconfig.ConfigData as AutoConfigData
-import me.shedaniel.autoconfig.annotation.Config
 import net.fabricmc.loader.api.FabricLoader
-import net.minecraft.core.Registry
-import net.minecraft.world.entity.Entity
-import net.minecraft.world.entity.EntityType
-import net.minecraft.world.entity.MobCategory
-import net.minecraft.world.entity.player.Player
-import net.minecraft.world.item.BlockItem
-import net.minecraft.world.item.ItemStack
+import net.minecraft.util.registry.Registry
+import net.minecraft.entity.Entity
+import net.minecraft.entity.EntityType
+import net.minecraft.entity.EntityCategory
+import net.minecraft.entity.player.PlayerEntity
+import net.minecraft.item.BlockItem
+import net.minecraft.item.ItemStack
 import java.io.File
 
-@Config(name = "midnight-assist")
 data class ConfigData(
     var configVersion: Int = 7,
     @JvmField var globalEnabled: Boolean = true,
@@ -35,7 +32,7 @@ data class ConfigData(
     @JvmField val enabledEntities: MutableMap<String, Boolean> = mutableMapOf(),
     @JvmField val priorityEntities: MutableList<String> = mutableListOf(),
     @JvmField val weaponProfiles: MutableList<WeaponProfile> = mutableListOf()
-) : AutoConfigData
+)
 
 data class WeaponProfile(
     @JvmField var kind: String = "item",
@@ -115,7 +112,7 @@ object MidnightAssistConfig {
     @JvmStatic
     fun getEntityType(id: String): EntityType<*>? {
         for (type in Registry.ENTITY_TYPE) {
-            if (Registry.ENTITY_TYPE.getKey(type).toString() == id) {
+            if (Registry.ENTITY_TYPE.getId(type).toString() == id) {
                 return type
             }
         }
@@ -124,7 +121,7 @@ object MidnightAssistConfig {
 
     @JvmStatic
     fun getEntityId(type: EntityType<*>): String {
-        return Registry.ENTITY_TYPE.getKey(type).toString()
+        return Registry.ENTITY_TYPE.getId(type).toString()
     }
 
     @JvmStatic
@@ -132,7 +129,7 @@ object MidnightAssistConfig {
         if (id == "minecraft:player") return false
 
         val category = type.category
-        val hasAI = category != MobCategory.MISC
+        val hasAI = category != EntityCategory.MISC
 
         val isSpecialMob = id.contains("golem") || id.contains("villager")
 
@@ -232,7 +229,7 @@ object MidnightAssistConfig {
 
         var changed = false
         Registry.ENTITY_TYPE.forEach { type ->
-            val id = Registry.ENTITY_TYPE.getKey(type).toString()
+            val id = Registry.ENTITY_TYPE.getId(type).toString()
 
             if (id != "minecraft:player" && !data.enabledEntities.containsKey(id)) {
                 data.enabledEntities[id] = isSmartDefault(type, id)
@@ -255,7 +252,7 @@ object MidnightAssistConfig {
         if (stack.isEmpty) {
             return data.weaponProfiles.firstOrNull { it.kind == "category" && it.key == "empty_hand" }
         }
-        val id = Registry.ITEM.getKey(stack.item).toString()
+        val id = Registry.ITEM.getId(stack.item).toString()
         data.weaponProfiles.firstOrNull { it.kind == "item" && it.key == id }?.let { return it }
         val category = weaponCategoryForItem(id)
         if (category != null) {
@@ -319,7 +316,7 @@ object MidnightAssistConfig {
         if (preset == Preset.NONE) return
 
         Registry.ENTITY_TYPE.forEach { type ->
-            val id = Registry.ENTITY_TYPE.getKey(type).toString()
+            val id = Registry.ENTITY_TYPE.getId(type).toString()
             if (id == "minecraft:player") {
                 data.enabledEntities.remove(id)
                 return@forEach
@@ -327,10 +324,9 @@ object MidnightAssistConfig {
 
             val category = type.category
 
-            val isHostile = category == MobCategory.MONSTER
-            val isPassive = category == MobCategory.CREATURE || category == MobCategory.AMBIENT ||
-                            category == MobCategory.WATER_CREATURE || category == MobCategory.WATER_AMBIENT ||
-                            category == MobCategory.UNDERGROUND_WATER_CREATURE
+            val isHostile = category == EntityCategory.MONSTER
+            val isPassive = category == EntityCategory.CREATURE || category == EntityCategory.AMBIENT ||
+                            category == EntityCategory.WATER_CREATURE
 
             val neutralKeywords = listOf("spider", "enderman", "piglin", "wolf", "bee", "golem", "llama", "bear", "dolphin", "goat", "panda", "warden")
             val isNeutral = neutralKeywords.any { id.contains(it) }
@@ -360,21 +356,21 @@ object MidnightAssistConfig {
 
     @JvmStatic
     fun isEntityEnabled(entity: Entity): Boolean {
-        if (entity is Player) return false
+        if (entity is PlayerEntity) return false
 
-        val id = Registry.ENTITY_TYPE.getKey(entity.type).toString()
+        val id = Registry.ENTITY_TYPE.getId(entity.type).toString()
         return data.enabledEntities[id] ?: isSmartDefault(entity.type, id)
     }
 
     @JvmStatic
     fun isPriorityEntity(entity: Entity): Boolean {
-        val id = Registry.ENTITY_TYPE.getKey(entity.type).toString()
+        val id = Registry.ENTITY_TYPE.getId(entity.type).toString()
         return data.priorityEntities.contains(id)
     }
 
     @JvmStatic
     fun isBlockedEntity(entity: Entity): Boolean {
-        val id = Registry.ENTITY_TYPE.getKey(entity.type).toString()
+        val id = Registry.ENTITY_TYPE.getId(entity.type).toString()
         return data.enabledEntities[id] == false
     }
 }

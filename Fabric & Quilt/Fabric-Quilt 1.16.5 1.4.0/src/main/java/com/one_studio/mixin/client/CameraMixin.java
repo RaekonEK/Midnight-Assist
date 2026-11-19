@@ -1,7 +1,7 @@
 package com.one_studio.mixin.client;
 
 import com.one_studio.MidnightAssistClient;
-import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.render.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
