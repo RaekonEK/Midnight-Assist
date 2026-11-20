@@ -12,6 +12,9 @@
  *   - all non-Minecraft references exist in the profile's mods / libraries
  *
  * Usage:  node tools/verify_fabric_profiles.js [--verbose] [--tree=<substring>]
+ *         node tools/verify_fabric_profiles.js --exact [--profile=<substring>]
+ *           (--exact links the installed jar in every profile against that
+ *            profile's own client jar in .fabric/remappedJars)
  */
 'use strict';
 
@@ -28,6 +31,8 @@ const REPO = path.resolve(__dirname, '..');
 const TREES = path.join(REPO, 'Fabric & Quilt');
 const VERBOSE = process.argv.includes('--verbose');
 const TREE_FILTER = ((process.argv.find((a) => a.startsWith('--tree=')) || '').slice(7));
+const EXACT = process.argv.includes('--exact');
+const PROFILE_FILTER = ((process.argv.find((a) => a.startsWith('--profile=')) || '').slice(10));
 
 // ---------------------------------------------------------------- zip reader
 function zipEntries(buf) {
@@ -202,28 +207,36 @@ function indexJar(file, opts = {}) {
   return index;
 }
 
+// true = found, false = definitely absent, null = may be inherited from a JDK type (unknown).
+// java/lang/Object is treated as "has no members" so missing members are still detected.
+function unknownOwner(owner) {
+  return owner !== 'java/lang/Object' && jdkClass(owner);
+}
+
 function hasMethod(index, owner, name, desc, seen = new Set()) {
-  if (jdkClass(owner)) return true; // JDK supertype: cannot verify, assume present
+  if (!owner) return false;
   if (seen.has(owner)) return false;
   seen.add(owner);
   const c = index.get(owner);
-  if (!c) return null;
+  if (!c) return unknownOwner(owner) ? null : false;
   if (c.methods.has(name + desc)) return true;
-  if (c.superName) { const r = hasMethod(index, c.superName, name, desc, seen); if (r === true) return true; }
-  for (const i of c.interfaces) { const r = hasMethod(index, i, name, desc, seen); if (r === true) return true; }
-  return false;
+  let unknown = false;
+  if (c.superName) { const r = hasMethod(index, c.superName, name, desc, seen); if (r === true) return true; if (r === null) unknown = true; }
+  for (const i of c.interfaces) { const r = hasMethod(index, i, name, desc, seen); if (r === true) return true; if (r === null) unknown = true; }
+  return unknown ? null : false;
 }
 
 function hasField(index, owner, name, desc, seen = new Set()) {
-  if (jdkClass(owner)) return true;
+  if (!owner) return false;
   if (seen.has(owner)) return false;
   seen.add(owner);
   const c = index.get(owner);
-  if (!c) return null;
+  if (!c) return unknownOwner(owner) ? null : false;
   if (c.fields.has(name + ':' + desc)) return true;
-  if (c.superName) { const r = hasField(index, c.superName, name, desc, seen); if (r === true) return true; }
-  for (const i of c.interfaces) { const r = hasField(index, i, name, desc, seen); if (r === true) return true; }
-  return false;
+  let unknown = false;
+  if (c.superName) { const r = hasField(index, c.superName, name, desc, seen); if (r === true) return true; if (r === null) unknown = true; }
+  for (const i of c.interfaces) { const r = hasField(index, i, name, desc, seen); if (r === true) return true; if (r === null) unknown = true; }
+  return unknown ? null : false;
 }
 
 // ------------------------------------------------------------- tiny mappings
@@ -395,7 +408,9 @@ const LIB_DIRS = [
 
 // ------------------------------------------------------------- tree definitions
 const TREE_META = {
-  'Fabric-Quilt 1.14.x 1.4.0': { mc: '1.14.4', profiles: ['1.14', '1.14.1', '1.14.2', '1.14.3', '1.14.4'] },
+  // Fabric API 0.28.5+1.14 (the only build with ClientTickEvents/KeyBindingHelper on
+  // the 1.14 line) crashes on 1.14.0-1.14.3, so this tree targets 1.14.4 only.
+  'Fabric-Quilt 1.14.x 1.4.0': { mc: '1.14.4', profiles: ['1.14.4'] },
   'Fabric-Quilt 1.15.2 1.4.0': { mc: '1.15.2', profiles: ['1.15', '1.15.1', '1.15.2'] },
   'Fabric-Quilt 1.16.5 1.4.0': { mc: '1.16.5', profiles: ['1.16', '1.16.1', '1.16.2', '1.16.3', '1.16.4', '1.16.5'] },
   'Fabric-Quilt 1.17.x 1.4.0': { mc: '1.17.1', profiles: ['1.17', '1.17.1'] },
@@ -442,6 +457,20 @@ function mcJarFor(mc) {
   return null;
 }
 
+function findProfileMcJar(profileName) {
+  const base = path.join(PROFILES, profileName, '.fabric', 'remappedJars');
+  if (!fs.existsSync(base)) return null;
+  for (const d of fs.readdirSync(base)) {
+    const dir = path.join(base, d);
+    let entries;
+    try { entries = fs.readdirSync(dir); } catch (e) { continue; }
+    for (const f of entries) {
+      if (f === 'client-intermediary.jar') return path.join(dir, f);
+    }
+  }
+  return null;
+}
+
 function tinyFor(mc) {
   const direct = path.join(GRADLE, mc, 'intermediary-v2.tiny');
   if (fs.existsSync(direct)) return fs.readFileSync(direct, 'utf8');
@@ -463,15 +492,17 @@ function problem(tree, profile, kind, message) {
 
 // ------------------------------------------------------------- main
 function main() {
-  console.log('Indexing external classpath (profile mods + libraries)...');
-  for (const dir of LIB_DIRS) indexDirectory(path.join(LIBRARIES, dir));
-  for (const name of fs.readdirSync(PROFILES)) {
-    if (!name.startsWith('Fabric ')) continue;
-    indexDirectory(path.join(PROFILES, name, 'mods'));
+  if (!EXACT) {
+    console.log('Indexing external classpath (profile mods + libraries)...');
+    for (const dir of LIB_DIRS) indexDirectory(path.join(LIBRARIES, dir));
+    for (const name of fs.readdirSync(PROFILES)) {
+      if (!name.startsWith('Fabric ')) continue;
+      indexDirectory(path.join(PROFILES, name, 'mods'));
+    }
+    console.log(`  indexed ${externalClasses.size} classes from ${externalJars.length} jars`);
   }
-  console.log(`  indexed ${externalClasses.size} classes from ${externalJars.length} jars`);
 
-  const trees = Object.keys(TREE_META).filter((t) => !TREE_FILTER || t.includes(TREE_FILTER));
+  const trees = EXACT ? [] : Object.keys(TREE_META).filter((t) => !TREE_FILTER || t.includes(TREE_FILTER));
 
   for (const tree of trees) {
     const meta = TREE_META[tree];
@@ -553,7 +584,7 @@ function main() {
           checkedRefs++;
           const ok = mcMode === 'mappings'
             ? !!(mcIndex.members.get(r.owner) && mcIndex.members.get(r.owner).m.has(r.name + r.desc))
-            : hasMethod(mcIndex, r.owner, r.name, r.desc) === true;
+            : hasMethod(mcIndex, r.owner, r.name, r.desc) !== false;
           if (!ok) mcIssue('mc-member', `${r.owner}.${r.name}${r.desc}`);
         }
         for (const r of cls.fieldRefs) {
@@ -561,7 +592,7 @@ function main() {
           checkedRefs++;
           const ok = mcMode === 'mappings'
             ? !!(mcIndex.members.get(r.owner) && mcIndex.members.get(r.owner).f.has(r.name + ':' + r.desc))
-            : hasField(mcIndex, r.owner, r.name, r.desc) === true;
+            : hasField(mcIndex, r.owner, r.name, r.desc) !== false;
           if (!ok) mcIssue('mc-field', `${r.owner}.${r.name}:${r.desc}`);
         }
 
@@ -577,7 +608,7 @@ function main() {
               checkedRefs++;
               const ok = mcMode === 'mappings'
                 ? !!(mcIndex.members.get(owner) && mcIndex.members.get(owner).m.has(name + desc))
-                : hasMethod(mcIndex, owner, name, desc) === true;
+                : hasMethod(mcIndex, owner, name, desc) !== false;
               if (!ok) mcIssue('mixin-target', `${owner}.${name}${desc}`);
             }
             let ft;
@@ -586,7 +617,7 @@ function main() {
               checkedRefs++;
               const ok = mcMode === 'mappings'
                 ? !!(mcIndex.members.get(owner) && mcIndex.members.get(owner).f.has(name + ':' + desc))
-                : hasField(mcIndex, owner, name, desc) === true;
+                : hasField(mcIndex, owner, name, desc) !== false;
               if (!ok) mcIssue('mixin-target', `${owner}.${name}:${desc}`);
             }
           }
@@ -606,7 +637,7 @@ function main() {
           const cls = m[1], name = m[2], desc = m[3];
           const ok = mcMode === 'mappings'
             ? !!(mcIndex && mcIndex.members.get(cls) && mcIndex.members.get(cls).m.has(name + desc))
-            : (mcIndex ? hasMethod(mcIndex, cls, name, desc) === true : false);
+            : (mcIndex ? hasMethod(mcIndex, cls, name, desc) !== false : false);
           if (!ok) { mixinTargetErrors++; problem(tree, '-', 'mixin-target', `${owner}: ${target}`); }
         }
       }
@@ -670,6 +701,69 @@ function main() {
       }
     }
     console.log(`  ${tree.padEnd(34)} ${TREE_META[tree].profiles.length} profiles checked`);
+  }
+
+  // ---- exact per-profile link check ----
+  if (EXACT) {
+    console.log('\nExact check: installed jar vs each profile\'s own client jar');
+    for (const name of fs.readdirSync(PROFILES)) {
+      if (!name.startsWith('Fabric ')) continue;
+      const pv = name.slice('Fabric '.length);
+      if (PROFILE_FILTER && !pv.includes(PROFILE_FILTER)) continue;
+      const modsDir = path.join(PROFILES, name, 'mods');
+      const mid = fs.existsSync(modsDir)
+        ? fs.readdirSync(modsDir).find((f) => f.startsWith('midnight-assist') && f.endsWith('.jar'))
+        : null;
+      if (!mid) { console.log(`  ${pv.padEnd(10)} no installed jar`); continue; }
+      const mcFile = findProfileMcJar(name);
+      if (!mcFile) { console.log(`  ${pv.padEnd(10)} skipped (no client jar)`); continue; }
+      const jar = openJar(path.join(modsDir, mid));
+      const fmj = readJsonFromJar(jar, 'fabric.mod.json');
+      if (!fmj) { console.log(`  ${pv.padEnd(10)} INVALID fabric.mod.json`); continue; }
+      const index = indexJar(mcFile, { prefix: 'net/' });
+
+      // mixin configs + entrypoints
+      const mixins = [];
+      for (const m of (fmj.mixins || [])) {
+        const cfgName = typeof m === 'string' ? m : m.config;
+        const cfg = readJsonFromJar(jar, cfgName);
+        if (!cfg) { problem('-', pv, 'mixin', `config ${cfgName} missing`); continue; }
+        const pkg = cfg.package || '';
+        for (const k of ['mixins', 'client', 'server']) {
+          if (!Array.isArray(cfg[k])) continue;
+          for (const c of cfg[k]) mixins.push((pkg ? pkg.replace(/\./g, '/') + '/' : '') + c.replace(/\./g, '/'));
+        }
+      }
+      for (const cls of mixins) if (!jar.has(cls + '.class')) problem('-', pv, 'mixin', `class ${cls} missing`);
+      for (const [ep, entries] of Object.entries(fmj.entrypoints || {})) {
+        for (const e of entries) {
+          const value = typeof e === 'string' ? e : e.value;
+          if (value && !jar.has(value.replace(/\./g, '/') + '.class')) problem('-', pv, 'entrypoint', `${ep} -> ${value}`);
+        }
+      }
+
+      let clsErr = 0, memErr = 0, refs = 0;
+      for (const cn of jar.classes()) {
+        let cls;
+        try { cls = parseClass(jar.read(cn + '.class')); } catch (e) { continue; }
+        for (const ref of cls.classRefs) {
+          if (!ref.startsWith('net/minecraft/')) continue;
+          refs++;
+          if (!index.has(ref)) { clsErr++; if (VERBOSE) console.log(`  [mc-class] ${pv} ${ref}`); }
+        }
+        for (const r of cls.methodRefs) {
+          if (!r.owner.startsWith('net/minecraft/')) continue;
+          refs++;
+          if (hasMethod(index, r.owner, r.name, r.desc) === false) { memErr++; if (VERBOSE) console.log(`  [mc-member] ${pv} ${r.owner}.${r.name}${r.desc}`); }
+        }
+        for (const r of cls.fieldRefs) {
+          if (!r.owner.startsWith('net/minecraft/')) continue;
+          refs++;
+          if (hasField(index, r.owner, r.name, r.desc) === false) { memErr++; if (VERBOSE) console.log(`  [mc-field] ${pv} ${r.owner}.${r.name}:${r.desc}`); }
+        }
+      }
+      console.log(`  ${pv.padEnd(10)} jar=${mid.padEnd(30)} refs=${String(refs).padStart(4)} mcClassErr=${clsErr} mcMemberErr=${memErr}`);
+    }
   }
 
   // ---- summary ----
