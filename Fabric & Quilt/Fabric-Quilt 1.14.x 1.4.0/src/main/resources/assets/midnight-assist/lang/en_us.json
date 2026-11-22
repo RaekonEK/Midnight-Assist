@@ -15,6 +15,7 @@
     "chat.midnight-assist.locked":  "§6Target locked",
     "chat.midnight-assist.unlocked":  "§eTarget unlocked",
   "chat.midnight-assist.preset_applied":  "§aTarget preset applied",
+  "chat.midnight-assist.config_unavailable":  "§cConfig screen needs ModMenu + Cloth Config",
     "key.midnight-assist.toggle":  "Toggle Midnight Assist",
     "key.midnight-assist.lock":  "Lock / Unlock Target",
     "key.midnight-assist.settings":  "Open Settings",

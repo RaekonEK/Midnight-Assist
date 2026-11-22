@@ -15,6 +15,7 @@
     "chat.midnight-assist.locked":  "§6تم تثبيت الهدف",
     "chat.midnight-assist.unlocked":  "§eتم إلغاء تثبيت الهدف",
   "chat.midnight-assist.preset_applied":  "§aتم تطبيق قالب الأهداف",
+  "chat.midnight-assist.config_unavailable":  "§cشاشة الإعدادات تحتاج ModMenu و Cloth Config",
     "key.midnight-assist.toggle":  "تبديل Midnight Assist",
     "key.midnight-assist.lock":  "تثبيت / إلغاء تثبيت الهدف",
     "key.midnight-assist.settings":  "فتح الإعدادات",

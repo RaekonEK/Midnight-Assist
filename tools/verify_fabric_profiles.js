@@ -408,9 +408,11 @@ const LIB_DIRS = [
 
 // ------------------------------------------------------------- tree definitions
 const TREE_META = {
-  // Fabric API 0.28.5+1.14 (the only build with ClientTickEvents/KeyBindingHelper on
-  // the 1.14 line) crashes on 1.14.0-1.14.3, so this tree targets 1.14.4 only.
-  'Fabric-Quilt 1.14.x 1.4.0': { mc: '1.14.4', profiles: ['1.14.4'] },
+  // The mod avoids the two incompatible Fabric API generations on this line
+  // (own MinecraftClient tick mixin + reflective keybind registration), so a
+  // single jar covers 1.14.0 - 1.14.4. Each profile gets the Fabric API build
+  // that actually boots on it (0.2.7 / 0.3.0 / 0.28.5).
+  'Fabric-Quilt 1.14.x 1.4.0': { mc: '1.14.4', profiles: ['1.14', '1.14.1', '1.14.2', '1.14.3', '1.14.4'] },
   'Fabric-Quilt 1.15.2 1.4.0': { mc: '1.15.2', profiles: ['1.15', '1.15.1', '1.15.2'] },
   'Fabric-Quilt 1.16.5 1.4.0': { mc: '1.16.5', profiles: ['1.16', '1.16.1', '1.16.2', '1.16.3', '1.16.4', '1.16.5'] },
   'Fabric-Quilt 1.17.x 1.4.0': { mc: '1.17.1', profiles: ['1.17', '1.17.1'] },
