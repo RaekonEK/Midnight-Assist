@@ -288,11 +288,11 @@ public class MidnightAssistModMenu {
                 case "empty_hand" -> Items.PLAYER_HEAD;
                 default -> Items.AIR;
             };
-            return new ItemStack(item);
+            try { return new ItemStack(item); } catch (Exception e) { return ItemStack.EMPTY; }
         }
         for (Item item : BuiltInRegistries.ITEM) {
             if (BuiltInRegistries.ITEM.getKey(item).toString().equals(profile.key)) {
-                return new ItemStack(item);
+                try { return new ItemStack(item); } catch (Exception e) { return ItemStack.EMPTY; }
             }
         }
         return ItemStack.EMPTY;
