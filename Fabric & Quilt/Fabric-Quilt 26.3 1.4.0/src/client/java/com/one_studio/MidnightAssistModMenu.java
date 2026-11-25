@@ -11,6 +11,7 @@ import me.shedaniel.clothconfig2.gui.entries.SubCategoryListEntry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -295,13 +296,15 @@ public class MidnightAssistModMenu implements ModMenuApi {
                 case "empty_hand" -> Items.PLAYER_HEAD;
                 default -> Items.AIR;
             };
+            try { return new ItemStack(item); } catch (Exception e) { return ItemStack.EMPTY; }
+        }
+        try {
+            Identifier id = Identifier.parse(profile.key);
+            Item item = BuiltInRegistries.ITEM.getValue(id);
+            if (item == null || item == Items.AIR) return ItemStack.EMPTY;
             return new ItemStack(item);
+        } catch (Exception e) {
+            return ItemStack.EMPTY;
         }
-        for (Item item : BuiltInRegistries.ITEM) {
-            if (BuiltInRegistries.ITEM.getKey(item).toString().equals(profile.key)) {
-                return new ItemStack(item);
-            }
-        }
-        return ItemStack.EMPTY;
     }
 }
