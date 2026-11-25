@@ -1,7 +1,6 @@
 package com.one_studio
 
 import net.fabricmc.api.ClientModInitializer
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
 import net.minecraft.client.util.InputUtil
 import org.lwjgl.glfw.GLFW
@@ -51,6 +50,29 @@ object MidnightAssistClient : ClientModInitializer {
     private val keyLock = KeyBindingHelper.registerKeyBinding(KeyBinding("key.midnight-assist.lock", GLFW.GLFW_KEY_N, KEY_CATEGORY))
     private val keySettings = KeyBindingHelper.registerKeyBinding(KeyBinding("key.midnight-assist.settings", GLFW.GLFW_KEY_K, KEY_CATEGORY))
     private val keyEntityList = KeyBindingHelper.registerKeyBinding(KeyBinding("key.midnight-assist.entity_list", GLFW.GLFW_KEY_O, KEY_CATEGORY))
+
+    // Tick dispatch is driven by ClientTickMixin so the mod does not depend on
+    // ClientTickEvents, which is missing from some Fabric API builds for 1.16.
+    private val tickStartHandlers = ArrayList<(MinecraftClient) -> Unit>()
+    private val tickEndHandlers = ArrayList<(MinecraftClient) -> Unit>()
+
+    @JvmStatic
+    fun onClientTickStart(client: MinecraftClient) {
+        for (handler in tickStartHandlers) handler(client)
+    }
+
+    @JvmStatic
+    fun onClientTickEnd(client: MinecraftClient) {
+        for (handler in tickEndHandlers) handler(client)
+    }
+
+    private fun onTickStart(handler: (MinecraftClient) -> Unit) {
+        tickStartHandlers += handler
+    }
+
+    private fun onTickEnd(handler: (MinecraftClient) -> Unit) {
+        tickEndHandlers += handler
+    }
 
     private var lockedTargetId: Int = -1
     private var isHunting: Boolean = false
@@ -114,23 +136,23 @@ object MidnightAssistClient : ClientModInitializer {
             if (shouldCancelItemUse()) ActionResult.FAIL else ActionResult.PASS
         }
 
-        ClientTickEvents.END_CLIENT_TICK.register(ClientTickEvents.EndTick { PresetWatcher.tick() })
+        onTickEnd { PresetWatcher.tick() }
 
-        ClientTickEvents.START_CLIENT_TICK.register(ClientTickEvents.StartTick { client: MinecraftClient ->
-            val player = client.player ?: return@StartTick
-            val level = client.world ?: return@StartTick
+        onTickStart { client ->
+            val player = client.player ?: return@onTickStart
+            val level = client.world ?: return@onTickStart
 
             if (!MidnightAssistConfig.data.globalEnabled) {
                 resetCameraState()
                 resetAssistState()
-                return@StartTick
+                return@onTickStart
             }
 
             val handProfile = MidnightAssistConfig.findWeaponProfile(player.getMainHandStack())
             if (handProfile != null && !handProfile.enabled) {
                 resetCameraState()
                 resetAssistState()
-                return@StartTick
+                return@onTickStart
             }
 
             recentlyAttacked.entries.removeAll { System.currentTimeMillis() - it.value > RECENTLY_ATTACKED_TIMEOUT }
@@ -301,16 +323,16 @@ object MidnightAssistClient : ClientModInitializer {
             if (isHunting) {
                 ticksSinceTargetAcquired++
             }
-        })
+        }
 
-        ClientTickEvents.START_CLIENT_TICK.register(ClientTickEvents.StartTick { client: MinecraftClient ->
+        onTickStart { client ->
             handleKeybinds(client)
             assistTick(client)
-        })
+        }
 
-        ClientTickEvents.END_CLIENT_TICK.register(ClientTickEvents.EndTick { client: MinecraftClient ->
-            val player = client.player ?: return@EndTick
-            val gameMode = client.interactionManager ?: return@EndTick
+        onTickEnd { client ->
+            val player = client.player ?: return@onTickEnd
+            val gameMode = client.interactionManager ?: return@onTickEnd
 
             val entityReach = if (player.abilities.creativeMode) 5.0 else 3.0
 
@@ -397,19 +419,19 @@ object MidnightAssistClient : ClientModInitializer {
             if (!attackHeld && !isHunting) {
                 justAttacked = false
             }
-        })
+        }
 
-        ClientTickEvents.END_CLIENT_TICK.register(ClientTickEvents.EndTick { client: MinecraftClient ->
-            val player = client.player ?: return@EndTick
-            val gameMode = client.interactionManager ?: return@EndTick
+        onTickEnd { client ->
+            val player = client.player ?: return@onTickEnd
+            val gameMode = client.interactionManager ?: return@onTickEnd
 
-            if (!MidnightAssistConfig.data.globalEnabled) return@EndTick
+            if (!MidnightAssistConfig.data.globalEnabled) return@onTickEnd
             val handProfile = MidnightAssistConfig.findWeaponProfile(player.getMainHandStack())
-            if (handProfile != null && !handProfile.enabled) return@EndTick
-            if (isHunting || lockedTargetId != -1 || meleeLockOnTargetId != -1) return@EndTick
+            if (handProfile != null && !handProfile.enabled) return@onTickEnd
+            if (isHunting || lockedTargetId != -1 || meleeLockOnTargetId != -1) return@onTickEnd
 
             val realPressed = isAttackPressed(client)
-            if (!realPressed) return@EndTick
+            if (!realPressed) return@onTickEnd
 
             val hitEntity = client.targetedEntity
             if (hitEntity != null) {
@@ -421,7 +443,7 @@ object MidnightAssistClient : ClientModInitializer {
                     }
                 }
             }
-        })
+        }
     }
 
     // ------------------------------------------------------------------

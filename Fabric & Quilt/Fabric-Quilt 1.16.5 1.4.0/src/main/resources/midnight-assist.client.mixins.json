@@ -3,7 +3,7 @@
 	"required": true,
 	"package": "com.one_studio.mixin.client",
 	"compatibilityLevel": "JAVA_8",
-	"client": ["CameraMixin", "UseKeyMixin"],
+	"client": ["CameraMixin", "UseKeyMixin", "ClientTickMixin"],
 	"injectors": {
 		"defaultRequire": 1
 	}

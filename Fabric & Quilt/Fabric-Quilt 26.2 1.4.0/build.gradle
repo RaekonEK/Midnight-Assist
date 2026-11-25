@@ -84,3 +84,15 @@ publishing {
 	repositories {
 	}
 }
+
+// Minecraft 26.2 pins lwjgl-freetype to a Mojang-patched build that Gradle/Loom
+// currently fails to resolve (the Minecraft libraries maven is not consulted for
+// this module), which breaks the dev compile classpath. Map it back to the plain
+// LWJGL build; LWJGL is provided by the game at runtime and is not bundled.
+configurations.all {
+	resolutionStrategy.eachDependency { d ->
+		if (d.requested.group == 'org.lwjgl' && d.requested.version?.toString()?.contains('-mojang-')) {
+			d.useVersion(d.requested.version.toString().replaceFirst(/-mojang-.*$/, ''))
+		}
+	}
+}
